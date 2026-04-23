@@ -3,7 +3,12 @@ import { useAuth } from '../../context/AuthContext';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 
-const ROLE_LABELS = { admin: '👑 Admin', china_supplier: '🏭 China Supplier', md_supplier: '🏢 MD Supplier' };
+const ROLE_LABELS = {
+  admin:          '👑 Admin',
+  china_supplier: '🏭 China Supplier',
+  md_supplier:    '🏢 MD Supplier',
+  operations:     '📤 Operations'
+};
 
 const ROLE_NAV = {
   admin: [
@@ -13,40 +18,24 @@ const ROLE_NAV = {
     { to: '/admin/md',           icon: '🏢', label: 'MD Supplier' },
     { to: '/admin/open-po',      icon: '📦', label: 'Open PO' },
     { to: '/admin/compare',      icon: '🔄', label: 'Compare Files' },
+    { to: '/admin/upload',       icon: '📤', label: 'Upload Data' },
+    { to: '/admin/portals',      icon: '⚙️',  label: 'Portal Settings' },
     { to: '/admin/users',        icon: '👥', label: 'Users' }
   ],
+  operations: [
+    { to: '/ops', icon: '📤', label: 'Upload Data' }
+  ],
   china_supplier: [
-    { to: '/china',         icon: '📋', label: 'My SKUs' },
-    { to: '/china/open-po', icon: '📦', label: 'PO Status' }
+    { to: '/china', icon: '📋', label: 'My SKUs' }
   ],
   md_supplier: [
-    { to: '/md',         icon: '📋', label: 'My SKUs' },
-    { to: '/md/open-po', icon: '📦', label: 'PO Status' }
+    { to: '/md', icon: '📋', label: 'My SKUs' }
   ]
 };
 
 export default function Layout() {
   const { user, logout, isAdmin } = useAuth();
-  const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
-
-  const handleUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const { uploadApi } = await import('../../utils/api');
-      const res = await uploadApi.uploadExcel(file);
-      toast.success(res.data.message);
-      window.location.reload();
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Upload failed');
-    } finally {
-      setUploading(false);
-      e.target.value = '';
-    }
-  };
-
   const nav = ROLE_NAV[user?.role] || [];
 
   return (
@@ -61,7 +50,7 @@ export default function Layout() {
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === '/admin' || item.to === '/china' || item.to === '/md'}
+              end={['admin','ops','china','md'].some(r => item.to === '/' + r)}
               className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
             >
               <span className="nav-icon">{item.icon}</span>
@@ -74,11 +63,8 @@ export default function Layout() {
             <strong>{user?.name}</strong>
             {ROLE_LABELS[user?.role]}
           </div>
-          <button
-            className="btn btn-ghost"
-            style={{ width: '100%', justifyContent: 'center' }}
-            onClick={() => { logout(); navigate('/login'); }}
-          >
+          <button className="btn btn-ghost" style={{ width: '100%', justifyContent: 'center' }}
+            onClick={() => { logout(); navigate('/login'); }}>
             Sign Out
           </button>
         </div>
@@ -89,20 +75,6 @@ export default function Layout() {
           <span style={{ fontWeight: 600, fontSize: 14 }}>InventoryBrain</span>
           <span style={{ fontSize: 12, color: 'var(--muted)' }}>|</span>
           <span style={{ fontSize: 12, color: 'var(--muted)' }}>{ROLE_LABELS[user?.role]}</span>
-          <div className="ml-auto" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {isAdmin && (
-              <label className="btn btn-primary" style={{ cursor: 'pointer' }}>
-                {uploading ? <><span className="spinner" /> Uploading…</> : '⬆ Upload Excel'}
-                <input
-                  type="file"
-                  accept=".xlsx,.xls"
-                  style={{ display: 'none' }}
-                  onChange={handleUpload}
-                  disabled={uploading}
-                />
-              </label>
-            )}
-          </div>
         </header>
         <main className="page-content">
           <Outlet />

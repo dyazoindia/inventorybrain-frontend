@@ -10,6 +10,7 @@ import MDDashboard      from './pages/MDDashboard';
 import OpenPODashboard  from './pages/OpenPODashboard';
 import CompareDashboard from './pages/CompareDashboard';
 import UsersPage        from './pages/UsersPage';
+import AllProductsPage  from './pages/AllProductsPage';
 import Layout           from './components/layout/Layout';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 30000 } } });
@@ -25,9 +26,9 @@ function RequireAuth({ children, roles }) {
 function RoleRedirect() {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role === 'admin')          return <Navigate to="/admin"    replace />;
-  if (user.role === 'china_supplier') return <Navigate to="/china"    replace />;
-  if (user.role === 'md_supplier')    return <Navigate to="/md"       replace />;
+  if (user.role === 'admin')          return <Navigate to="/admin" replace />;
+  if (user.role === 'china_supplier') return <Navigate to="/china" replace />;
+  if (user.role === 'md_supplier')    return <Navigate to="/md"    replace />;
   return <Navigate to="/login" replace />;
 }
 
@@ -41,23 +42,21 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<RoleRedirect />} />
 
-            {/* Admin routes */}
             <Route path="/admin" element={<RequireAuth roles={['admin']}><Layout /></RequireAuth>}>
               <Route index element={<AdminDashboard />} />
-              <Route path="china"   element={<ChinaDashboard />} />
-              <Route path="md"      element={<MDDashboard />} />
-              <Route path="open-po" element={<OpenPODashboard />} />
-              <Route path="compare" element={<CompareDashboard />} />
-              <Route path="users"   element={<UsersPage />} />
+              <Route path="all-products" element={<AllProductsPage />} />
+              <Route path="china"        element={<ChinaDashboard />} />
+              <Route path="md"           element={<MDDashboard />} />
+              <Route path="open-po"      element={<OpenPODashboard />} />
+              <Route path="compare"      element={<CompareDashboard />} />
+              <Route path="users"        element={<UsersPage />} />
             </Route>
 
-            {/* China supplier routes */}
             <Route path="/china" element={<RequireAuth roles={['china_supplier','admin']}><Layout /></RequireAuth>}>
               <Route index element={<ChinaDashboard />} />
               <Route path="open-po" element={<OpenPODashboard />} />
             </Route>
 
-            {/* MD supplier routes */}
             <Route path="/md" element={<RequireAuth roles={['md_supplier','admin']}><Layout /></RequireAuth>}>
               <Route index element={<MDDashboard />} />
               <Route path="open-po" element={<OpenPODashboard />} />

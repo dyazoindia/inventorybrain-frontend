@@ -200,7 +200,7 @@ export default function OpenPODashboard() {
       {/* Filters */}
       <div className="filter-row" style={{ marginBottom:12 }}>
         <input className="filter-input" placeholder="Search SKU / ASIN…" value={search} onChange={e=>setSearch(e.target.value)} />
-        <div style={{ display:'flex', gap:4' }}>
+        <div style={{ display:'flex', gap:4 }}>
           {['all','open','partially_shipped','fully_shipped','delivered'].map(s => (
             <button key={s} className={`btn btn-sm ${statusFilter===s?'btn-primary':'btn-ghost'}`}
               onClick={() => setStatusFilter(s)}>

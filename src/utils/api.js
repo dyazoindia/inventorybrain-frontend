@@ -85,3 +85,23 @@ export const usersApi = {
 export const dashboardApi = {
   summary: () => api.get('/dashboard/summary')
 };
+
+// ── Portal PO ─────────────────────────────────────────────────
+export const portalPOApi = {
+  list:    (params) => api.get('/portal-po', { params }),
+  create:  (data)   => api.post('/portal-po', data),
+  ship:    (id, data) => api.patch(`/portal-po/${id}/ship`, data),
+  deliver: (id, data) => api.patch(`/portal-po/${id}/deliver`, data),
+  summary: () => api.get('/portal-po/summary')
+};
+
+// ── Supplier PO (updated) ─────────────────────────────────────
+export const supplierPOApi = {
+  list:    (params) => api.get('/purchase-orders', { params }),
+  setFinalQty: (data)   => api.post('/purchase-orders', data),
+  confirm: (id, data) => api.patch(`/purchase-orders/${id}/confirm`, data),
+  ship:    (id, data) => api.patch(`/purchase-orders/${id}/ship`, data),
+  deliver: (id, data) => api.patch(`/purchase-orders/${id}/deliver`, data),
+  reject:  (id, data) => api.patch(`/purchase-orders/${id}/reject`, data),
+  stats:   ()         => api.get('/purchase-orders/stats')
+};

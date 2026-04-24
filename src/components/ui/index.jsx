@@ -1,19 +1,24 @@
 // Shared UI components
 
+const fmtDoc = (v) => (v !== null && v !== undefined && isFinite(v)) ? (Math.round(v * 10) / 10) + 'd' : '—';
+const fmtDRR = (v) => v ? parseFloat(v).toFixed(2).replace(/\.?0+$/, '') : '—';
+
+export { fmtDoc, fmtDRR };
+
 export function DocCell({ value }) {
-  if (value === null || value === undefined || !isFinite(value)) return <span className="doc-muted">—</span>;
-  const v = parseFloat(value).toFixed(1);
-  const cls = value < 7 ? 'doc-red' : value < 15 ? 'doc-orange' : value < 30 ? 'doc-yellow' : 'doc-green';
-  return <span className={cls}>{v}d</span>;
+  if (value === null || value === undefined || !isFinite(value)) return <span style={{ color: 'var(--muted)' }}>—</span>;
+  const v = fmtDoc(value);
+  const color = value < 7 ? 'var(--red)' : value < 15 ? 'var(--orange)' : value < 30 ? 'var(--yellow)' : 'var(--green)';
+  return <span style={{ fontWeight: 600, color }}>{v}</span>;
 }
 
 export function HealthBadge({ status }) {
   const map = {
-    healthy:       { cls: 'badge-healthy',  label: 'Healthy' },
-    slow_moving:   { cls: 'badge-slow',     label: 'Slow Moving' },
-    overstock:     { cls: 'badge-over',     label: 'Overstock' },
-    dead_inventory:{ cls: 'badge-dead',     label: 'Dead' },
-    unknown:       { cls: 'badge-gray',     label: 'N/A' }
+    healthy:       { cls: 'badge-healthy', label: '✅ Healthy' },
+    unhealthy:     { cls: 'badge-slow',    label: '⚠ Unhealthy' },
+    very_unhealthy:{ cls: 'badge-over',    label: '🔴 Very Unhealthy' },
+    dead_inventory:{ cls: 'badge-dead',    label: '💀 Dead Inventory' },
+    unknown:       { cls: 'badge-gray',    label: 'N/A' }
   };
   const { cls, label } = map[status] || map.unknown;
   return <span className={`badge ${cls}`}>{label}</span>;
@@ -31,15 +36,33 @@ export function AlertBadge({ level }) {
   return <span className={`badge ${cls}`}>{label}</span>;
 }
 
+// NEW: Action Type Badge — clear business meaning
+export function ActionTypeBadge({ actionType, actionDetails }) {
+  const map = {
+    supplier_po_required:  { cls: 'badge-critical', label: '🔴 Supplier PO Required',   color: 'var(--red)' },
+    supplier_po_inprogress:{ cls: 'badge-confirmed', label: '🔵 Supplier PO In Progress', color: 'var(--blue)' },
+    platform_po_incoming:  { cls: 'badge-supplier',  label: '🟣 Platform PO Incoming',   color: 'var(--purple)' },
+    no_action:             { cls: 'badge-ok',         label: '✅ No Action Needed',        color: 'var(--green)' }
+  };
+  const { cls, label } = map[actionType] || map.no_action;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <span className={`badge ${cls}`} style={{ whiteSpace: 'nowrap' }}>{label}</span>
+      {actionDetails && <span style={{ fontSize: 9, color: 'var(--muted)', lineHeight: 1.3, maxWidth: 160, whiteSpace: 'normal' }}>{actionDetails}</span>}
+    </div>
+  );
+}
+
+// Legacy — kept for China/MD dashboards
 export function ActionBadge({ action }) {
   const map = {
-    need_po:       { cls: 'action-need', label: '⚡ Need PO' },
-    no_need:       { cls: 'action-ok',   label: '✓ No Need' },
-    stock_ok:      { cls: 'action-ok',   label: '✓ Stock OK' },
-    overstock_stop:{ cls: 'action-stop', label: '⛔ Stop Purchase' },
-    liquidate:     { cls: 'action-stop', label: '🔻 Liquidate' },
-    monitor:       { cls: 'badge badge-gray', label: 'Monitor' },
-    none:          { cls: 'badge badge-gray', label: '—' }
+    need_po:        { cls: 'action-need', label: '⚡ Need PO' },
+    no_need:        { cls: 'action-ok',   label: '✓ No Need' },
+    stock_ok:       { cls: 'action-ok',   label: '✓ Stock OK' },
+    overstock_stop: { cls: 'action-stop', label: '⛔ Stop Purchase' },
+    liquidate:      { cls: 'action-stop', label: '🔻 Liquidate' },
+    monitor:        { cls: 'badge badge-gray', label: 'Monitor' },
+    none:           { cls: 'badge badge-gray', label: '—' }
   };
   const { cls, label } = map[action] || map.none;
   return <span className={cls}>{label}</span>;
@@ -127,6 +150,4 @@ export function POFlowBar({ currentStatus }) {
   );
 }
 
-// Format number Indian style
 export const fmtN = (v) => (parseFloat(v) || 0).toLocaleString('en-IN');
-export const fmtDoc = (v) => (v !== null && isFinite(v)) ? parseFloat(v).toFixed(1) : '—';

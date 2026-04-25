@@ -31,13 +31,13 @@ export default function OpenPODashboard() {
   const shipMut = useMutation({
     mutationFn: function(d) { return portalPOApi.ship(d.id, { shippedQty: d.qty }); },
     onSuccess: function() { toast.success('Updated'); qc.invalidateQueries(['portal-po']); },
-    onError: function(e) { toast.error(e.response?.data?.error || 'Failed'); }
+    onError: function(e) { toast.error(e.response && e.response.data && e.response.data.error ? e.response.data.error : 'Failed'); }
   });
 
   const deliverMut = useMutation({
     mutationFn: function(d) { return portalPOApi.deliver(d.id, { deliveredQty: d.qty }); },
     onSuccess: function() { toast.success('Delivered'); qc.invalidateQueries(['portal-po']); },
-    onError: function() { toast.error('Failed'); }
+    onError: function(e) { toast.error('Failed'); }
   });
 
   const createMut = useMutation({
@@ -48,19 +48,20 @@ export default function OpenPODashboard() {
       setModal(false);
       setForm({ asin: '', openPOQty: '', poReference: '', notes: '' });
     },
-    onError: function() { toast.error('Failed'); }
+    onError: function(e) { toast.error('Failed'); }
   });
 
-  var allPOs = poData?.portalPOs || [];
+  var allPOs = poData && poData.portalPOs ? poData.portalPOs : [];
   var whMap = {};
-  var invRows = invData?.rows || [];
+  var invRows = invData && invData.rows ? invData.rows : [];
   invRows.forEach(function(r) { whMap[r.asin] = r.whInv; });
 
   var rows = allPOs;
   if (search) {
     var q = search.toLowerCase();
     rows = rows.filter(function(r) {
-      return (r.sku?.toLowerCase().indexOf(q) >= 0) || (r.asin?.toLowerCase().indexOf(q) >= 0);
+      return (r.sku && r.sku.toLowerCase().indexOf(q) >= 0) ||
+             (r.asin && r.asin.toLowerCase().indexOf(q) >= 0);
     });
   }
 

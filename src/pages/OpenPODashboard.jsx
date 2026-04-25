@@ -1,419 +1,173 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { portalPOApi, inventoryApi } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { Empty, Loading, fmtN } from '../components/ui';
-import { useSelection } from '../components/ui/useSelection';
-import { exportToCSV } from '../components/ui/exportUtils';
 import toast from 'react-hot-toast';
 
 const PORTALS = ['AMZ', 'FLK', 'ZPT', 'BLK'];
-const PORTAL_NAMES = { AMZ: 'Amazon', FLK: 'Flipkart', ZPT: 'Zepto', BLK: 'Blinkit' };
-const PORTAL_COLORS = { AMZ: '#e65100', FLK: '#1565c0', ZPT: '#1b5e20', BLK: '#6a1b9a' };
-const PORTAL_BG = { AMZ: '#fff3e0', FLK: '#e8f4fd', ZPT: '#e8fdf5', BLK: '#f3e5f5' };
-
-const fmtDoc = (v) => {
-  if (v === null || v === undefined || !isFinite(v)) return '—';
-  return (Math.round(v * 10) / 10) + 'd';
-};
-
-function StatusBadge({ status }) {
-  const map = {
-    open:              { cls: 'badge-po',        label: 'Open' },
-    partially_shipped: { cls: 'badge-urgent',    label: 'Part. Shipped' },
-    fully_shipped:     { cls: 'badge-transit',   label: 'Shipped' },
-    delivered:         { cls: 'badge-delivered', label: 'Delivered' }
-  };
-  const item = map[status] || map.open;
-  return <span className={'badge ' + item.cls}>{item.label}</span>;
-}
-
-function EditableCell({ value, onSave, disabled }) {
-  const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState(value || 0);
-
-  if (disabled) {
-    return <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>;
-  }
-
-  if (!editing) {
-    return (
-      <div
-        onClick={() => setEditing(true)}
-        style={{
-          cursor: 'pointer',
-          padding: '3px 8px',
-          borderRadius: 5,
-          background: 'var(--bg3)',
-          border: '1px dashed var(--border2)',
-          fontSize: 12,
-          fontWeight: 500,
-          color: 'var(--text)',
-          minWidth: 50,
-          textAlign: 'center'
-        }}
-      >
-        {value || <span style={{ opacity: 0.5 }}>Enter</span>}
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: 'flex', gap: 4 }}>
-      <input
-        type="number"
-        min="0"
-        value={val}
-        autoFocus
-        onChange={e => setVal(e.target.value)}
-        style={{
-          width: 65,
-          padding: '3px 6px',
-          border: '1px solid var(--blue)',
-          borderRadius: 5,
-          fontFamily: 'inherit',
-          fontSize: 12,
-          textAlign: 'center'
-        }}
-        onKeyDown={e => {
-          if (e.key === 'Enter') {
-            setEditing(false);
-            onSave(parseInt(val) || 0);
-          }
-          if (e.key === 'Escape') {
-            setEditing(false);
-          }
-        }}
-      />
-      <button
-        className="btn btn-success btn-xs"
-        onClick={() => { setEditing(false); onSave(parseInt(val) || 0); }}
-      >
-        OK
-      </button>
-    </div>
-  );
-}
+const PNAMES = { AMZ: 'Amazon', FLK: 'Flipkart', ZPT: 'Zepto', BLK: 'Blinkit' };
+const PCOLORS = { AMZ: '#e65100', FLK: '#1565c0', ZPT: '#1b5e20', BLK: '#6a1b9a' };
 
 export default function OpenPODashboard() {
   const { isAdmin, user } = useAuth();
-  const isOps = user?.role === 'operations';
+  const isOps = user && user.role === 'operations';
   const qc = useQueryClient();
-
-  const [activePortal, setActivePortal] = useState('AMZ');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [portal, setPortal] = useState('AMZ');
   const [search, setSearch] = useState('');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newPO, setNewPO] = useState({
-    asin: '',
-    openPOQty: '',
-    poReference: '',
-    notes: ''
-  });
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState({ asin: '', openPOQty: '', poReference: '', notes: '' });
 
   const { data: poData, isLoading } = useQuery({
-    queryKey: ['portal-po', activePortal],
-    queryFn: () => portalPOApi.list({ portal: activePortal }).then(r => r.data)
+    queryKey: ['portal-po', portal],
+    queryFn: function() { return portalPOApi.list({ portal: portal }).then(function(r) { return r.data; }); }
   });
 
   const { data: invData } = useQuery({
     queryKey: ['inventory-all'],
-    queryFn: () => inventoryApi.getLatest().then(r => r.data)
-  });
-
-  const { data: summaryData } = useQuery({
-    queryKey: ['portal-po-summary'],
-    queryFn: () => portalPOApi.summary().then(r => r.data)
+    queryFn: function() { return inventoryApi.getLatest().then(function(r) { return r.data; }); }
   });
 
   const shipMut = useMutation({
-    mutationFn: ({ id, shippedQty }) => portalPOApi.ship(id, { shippedQty }),
-    onSuccess: () => {
-      toast.success('Shipped qty updated');
-      qc.invalidateQueries(['portal-po']);
-      qc.invalidateQueries(['portal-po-summary']);
-    },
-    onError: err => toast.error(err.response?.data?.error || 'Failed')
+    mutationFn: function(d) { return portalPOApi.ship(d.id, { shippedQty: d.qty }); },
+    onSuccess: function() { toast.success('Updated'); qc.invalidateQueries(['portal-po']); },
+    onError: function(e) { toast.error(e.response && e.response.data && e.response.data.error ? e.response.data.error : 'Failed'); }
   });
 
   const deliverMut = useMutation({
-    mutationFn: ({ id, deliveredQty }) => portalPOApi.deliver(id, { deliveredQty }),
-    onSuccess: () => {
-      toast.success('Marked as delivered');
-      qc.invalidateQueries(['portal-po']);
-      qc.invalidateQueries(['portal-po-summary']);
-    },
-    onError: err => toast.error(err.response?.data?.error || 'Failed')
+    mutationFn: function(d) { return portalPOApi.deliver(d.id, { deliveredQty: d.qty }); },
+    onSuccess: function() { toast.success('Delivered'); qc.invalidateQueries(['portal-po']); },
+    onError: function(e) { toast.error('Failed'); }
   });
 
   const createMut = useMutation({
-    mutationFn: (data) => portalPOApi.create(data),
-    onSuccess: () => {
-      toast.success('Portal PO created!');
+    mutationFn: function(d) { return portalPOApi.create(d); },
+    onSuccess: function() {
+      toast.success('Created!');
       qc.invalidateQueries(['portal-po']);
-      qc.invalidateQueries(['portal-po-summary']);
-      setShowAddModal(false);
-      setNewPO({ asin: '', openPOQty: '', poReference: '', notes: '' });
+      setModal(false);
+      setForm({ asin: '', openPOQty: '', poReference: '', notes: '' });
     },
-    onError: err => toast.error(err.response?.data?.error || 'Failed')
+    onError: function(e) { toast.error('Failed'); }
   });
 
-  const allPOs = poData?.portalPOs || [];
+  var allPOs = poData && poData.portalPOs ? poData.portalPOs : [];
+  var whMap = {};
+  var invRows = invData && invData.rows ? invData.rows : [];
+  invRows.forEach(function(r) { whMap[r.asin] = r.whInv; });
 
-  const whMap = useMemo(() => {
-    const m = {};
-    (invData?.rows || []).forEach(r => { m[r.asin] = r.whInv; });
-    return m;
-  }, [invData]);
-
-  const summaryMap = useMemo(() => {
-    const m = {};
-    (summaryData?.summary || []).forEach(s => {
-      const p = s._id.portal;
-      if (!m[p]) m[p] = { open: 0, partially_shipped: 0, fully_shipped: 0, delivered: 0, totalOpen: 0, totalPending: 0 };
-      m[p][s._id.status] = (m[p][s._id.status] || 0) + s.count;
-      m[p].totalOpen += s.totalOpen || 0;
-      m[p].totalPending += Math.max(0, s.totalPending || 0);
+  var rows = allPOs;
+  if (search) {
+    var q = search.toLowerCase();
+    rows = rows.filter(function(r) {
+      return (r.sku && r.sku.toLowerCase().indexOf(q) >= 0) ||
+             (r.asin && r.asin.toLowerCase().indexOf(q) >= 0);
     });
-    return m;
-  }, [summaryData]);
+  }
 
-  const rows = useMemo(() => {
-    let r = allPOs;
-    if (statusFilter !== 'all') r = r.filter(x => x.status === statusFilter);
-    if (search) {
-      const q = search.toLowerCase();
-      r = r.filter(x =>
-        x.sku?.toLowerCase().includes(q) ||
-        x.asin?.toLowerCase().includes(q) ||
-        x.title?.toLowerCase().includes(q)
-      );
-    }
-    return r;
-  }, [allPOs, statusFilter, search]);
-
-  const { selected, toggle, toggleAll, clear, isAllSelected, isSomeSelected, selectedRows, count } = useSelection(rows, '_id');
-
-  const doExport = () => {
-    const cols = [
-      { key: 'sku',          label: 'SKU' },
-      { key: 'title',        label: 'Title' },
-      { key: 'portal',       label: 'Portal' },
-      { key: 'openPOQty',    label: 'Open PO Qty' },
-      { key: 'shippedQty',   label: 'Shipped Qty' },
-      { key: 'pendingQty',   label: 'Pending Qty', getValue: r => Math.max(0, (r.openPOQty || 0) - (r.shippedQty || 0)) },
-      { key: 'deliveredQty', label: 'Delivered Qty' },
-      { key: 'status',       label: 'Status' },
-      { key: 'whInv',        label: 'WH Inv', getValue: r => whMap[r.asin] ?? '' }
-    ];
-    exportToCSV(count > 0 ? selectedRows : rows, cols, 'portal_po_' + activePortal);
-  };
-
-  if (isLoading) return <Loading text="Loading PO data…" />;
-
-  const sm = summaryMap[activePortal] || {};
-
-  const statusButtons = ['all', 'open', 'partially_shipped', 'fully_shipped', 'delivered'];
-  const getStatusLabel = (s) => {
-    if (s === 'all') return 'All';
-    if (s === 'partially_shipped') return 'Part. Shipped';
-    if (s === 'fully_shipped') return 'Shipped';
-    return s.charAt(0).toUpperCase() + s.slice(1);
-  };
+  if (isLoading) return <Loading text="Loading..." />;
 
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <div className="sec" style={{ marginBottom: 0 }}>
-          Open PO Dashboard <small>Platform Orders</small>
-        </div>
+        <div className="sec" style={{ marginBottom: 0 }}>Open PO Dashboard</div>
         <div style={{ display: 'flex', gap: 8 }}>
           {(isAdmin || isOps) && (
-            <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)}>
-              + Add Portal PO
+            <button className="btn btn-primary btn-sm" onClick={function() { setModal(true); }}>
+              + Add PO
             </button>
           )}
-          <button className="btn btn-ghost" onClick={doExport}>
-            Export {count > 0 ? '(' + count + ')' : 'All'}
-          </button>
         </div>
       </div>
 
-      {/* Portal Tabs */}
       <div style={{ display: 'flex', marginBottom: 16, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)', width: 'fit-content' }}>
-        {PORTALS.map(p => {
-          const psm = summaryMap[p] || {};
-          const active = activePortal === p;
+        {PORTALS.map(function(p) {
+          var active = portal === p;
           return (
-            <button
-              key={p}
-              onClick={() => setActivePortal(p)}
+            <button key={p} onClick={function() { setPortal(p); }}
               style={{
-                padding: '10px 18px',
-                border: 'none',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                fontSize: 12,
-                fontWeight: active ? 700 : 500,
-                background: active ? PORTAL_COLORS[p] : PORTAL_BG[p],
-                color: active ? '#fff' : PORTAL_COLORS[p],
-                borderRight: p !== 'BLK' ? '1px solid rgba(0,0,0,.1)' : 'none',
-                transition: 'all .15s'
-              }}
-            >
-              {PORTAL_NAMES[p]}
-              {(psm.open || 0) > 0 && (
-                <span style={{ marginLeft: 6, background: 'rgba(0,0,0,.15)', borderRadius: 10, padding: '1px 6px', fontSize: 10 }}>
-                  {psm.open}
-                </span>
-              )}
+                padding: '10px 18px', border: 'none', cursor: 'pointer',
+                fontFamily: 'inherit', fontSize: 12, fontWeight: active ? 700 : 500,
+                background: active ? PCOLORS[p] : '#f5f6fa',
+                color: active ? '#fff' : PCOLORS[p],
+                borderRight: p !== 'BLK' ? '1px solid rgba(0,0,0,.1)' : 'none'
+              }}>
+              {PNAMES[p]}
             </button>
           );
         })}
       </div>
 
-      {/* Summary Cards */}
-      <div className="kgrid" style={{ marginBottom: 16 }}>
-        {[
-          { label: 'Open Orders',     val: sm.open || 0,                          color: PORTAL_COLORS[activePortal], filter: 'open' },
-          { label: 'Part. Shipped',   val: sm.partially_shipped || 0,             color: 'var(--orange)',              filter: 'partially_shipped' },
-          { label: 'Fully Shipped',   val: sm.fully_shipped || 0,                 color: 'var(--teal)',                filter: 'fully_shipped' },
-          { label: 'Delivered',       val: sm.delivered || 0,                     color: 'var(--green)',               filter: 'delivered' },
-          { label: 'Total PO Qty',    val: fmtN(sm.totalOpen || 0),              color: 'var(--blue)',                filter: null },
-          { label: 'Pending Dispatch', val: fmtN(Math.max(0, sm.totalPending || 0)), color: 'var(--red)',             filter: null }
-        ].map(c => (
-          <div
-            key={c.label}
-            className="kcard"
-            style={{ cursor: c.filter ? 'pointer' : 'default' }}
-            onClick={() => { if (c.filter) setStatusFilter(statusFilter === c.filter ? 'all' : c.filter); }}
-          >
-            <div className="kbar" style={{ background: c.color }} />
-            <div className="klbl">{c.label}</div>
-            <div className="kval" style={{ color: c.color }}>{c.val}</div>
-            {c.filter && <div style={{ fontSize: 10, color: 'var(--blue)', marginTop: 4 }}>Click to filter</div>}
-          </div>
-        ))}
-      </div>
-
       <div className="info-box" style={{ marginBottom: 14 }}>
-        <strong>Portal PO Logic:</strong> Open PO = Platform demand | Pending = Open PO minus Shipped | Ops team enters Shipped Qty | Admin marks Delivered
+        <strong>Portal PO:</strong> Open PO = Platform demand | Pending = Open PO minus Shipped | Ops enters Shipped | Admin marks Delivered
       </div>
 
-      {/* Filters */}
       <div className="filter-row" style={{ marginBottom: 12 }}>
-        <input
-          className="filter-input"
-          placeholder="Search SKU / ASIN..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-        <div style={{ display: 'flex', gap: 4 }}>
-          {statusButtons.map(s => (
-            <button
-              key={s}
-              className={'btn btn-sm ' + (statusFilter === s ? 'btn-primary' : 'btn-ghost')}
-              onClick={() => setStatusFilter(s)}
-            >
-              {getStatusLabel(s)}
-            </button>
-          ))}
-        </div>
+        <input className="filter-input" placeholder="Search SKU / ASIN..."
+          value={search} onChange={function(e) { setSearch(e.target.value); }} />
         <span className="filter-count" style={{ marginLeft: 'auto' }}>{rows.length} rows</span>
       </div>
 
-      {/* Selection bar */}
-      {count > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--blue-lt)', border: '1px solid rgba(59,111,245,.2)', borderRadius: 8, padding: '8px 14px', marginBottom: 10 }}>
-          <span style={{ fontSize: 12, color: 'var(--blue)', fontWeight: 500 }}>{count} selected</span>
-          <button className="btn btn-ghost btn-sm" onClick={clear}>Clear</button>
-          <button className="btn btn-success btn-sm" onClick={doExport}>Export</button>
-        </div>
-      )}
-
-      {!rows.length ? (
-        <Empty
-          icon="📦"
-          title={'No ' + PORTAL_NAMES[activePortal] + ' POs found'}
-          desc={(isAdmin || isOps) ? 'Add portal POs using the + button above.' : 'No open POs yet.'}
-        />
+      {rows.length === 0 ? (
+        <Empty icon="📦" title={'No ' + PNAMES[portal] + ' POs found'}
+          desc={(isAdmin || isOps) ? 'Add portal POs using the + button.' : 'No open POs yet.'} />
       ) : (
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th style={{ width: 32 }}>
-                  <input
-                    type="checkbox"
-                    checked={isAllSelected}
-                    ref={el => { if (el) el.indeterminate = isSomeSelected; }}
-                    onChange={e => toggleAll(e.target.checked)}
-                  />
-                </th>
                 <th>SKU</th>
-                <th style={{ minWidth: 150 }}>Title</th>
+                <th>Title</th>
                 <th>WH Inv</th>
-                <th style={{ background: PORTAL_BG[activePortal], color: PORTAL_COLORS[activePortal] }}>Open PO Qty</th>
-                <th style={{ background: '#fffde7', color: 'var(--yellow)' }}>Shipped Qty</th>
-                <th style={{ background: 'var(--red-lt)', color: 'var(--red)' }}>Pending Qty</th>
-                <th>Delivered Qty</th>
+                <th>Open PO Qty</th>
+                <th>Shipped Qty</th>
+                <th>Pending Qty</th>
+                <th>Delivered</th>
                 <th>Status</th>
                 <th>PO Ref</th>
-                {isAdmin && <th>Actions</th>}
+                {isAdmin && <th>Action</th>}
               </tr>
             </thead>
             <tbody>
-              {rows.map(r => {
-                const pendingQty = Math.max(0, (r.openPOQty || 0) - (r.shippedQty || 0));
-                const whInv = whMap[r.asin] ?? r.warehouseInvAtCreation ?? 0;
+              {rows.map(function(r) {
+                var pending = Math.max(0, (r.openPOQty || 0) - (r.shippedQty || 0));
+                var wh = whMap[r.asin] || r.warehouseInvAtCreation || 0;
                 return (
-                  <tr key={r._id} style={{ background: selected.has(r._id) ? 'var(--blue-lt)' : '' }}>
-                    <td>
-                      <input type="checkbox" checked={selected.has(r._id)} onChange={() => toggle(r._id)} />
-                    </td>
+                  <tr key={r._id}>
                     <td style={{ fontWeight: 500 }}>{r.sku || r.asin}</td>
-                    <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 11 }}>
-                      {r.title || '—'}
-                    </td>
-                    <td style={{ fontWeight: 500, color: whInv < 20 ? 'var(--red)' : 'var(--text)' }}>
-                      {fmtN(whInv)}
-                    </td>
-                    <td style={{ fontWeight: 700, color: PORTAL_COLORS[activePortal] }}>
-                      {fmtN(r.openPOQty)}
-                    </td>
+                    <td style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 11 }}>{r.title || '—'}</td>
+                    <td style={{ color: wh < 20 ? 'var(--red)' : 'var(--text)', fontWeight: 500 }}>{fmtN(wh)}</td>
+                    <td style={{ fontWeight: 700, color: PCOLORS[portal] }}>{fmtN(r.openPOQty)}</td>
                     <td style={{ background: '#fffde7' }}>
                       {(isAdmin || isOps) && r.status !== 'delivered' ? (
-                        <EditableCell
-                          value={r.shippedQty}
-                          onSave={v => shipMut.mutate({ id: r._id, shippedQty: v })}
-                        />
+                        <button className="btn btn-ghost btn-xs"
+                          onClick={function() {
+                            var qty = prompt('Enter shipped qty:', r.shippedQty || 0);
+                            if (qty !== null) shipMut.mutate({ id: r._id, qty: parseInt(qty) || 0 });
+                          }}>
+                          {r.shippedQty || 'Enter'}
+                        </button>
                       ) : (
-                        <span style={{ fontWeight: 600, color: 'var(--teal)' }}>
-                          {fmtN(r.shippedQty || 0)}
-                        </span>
+                        <span style={{ fontWeight: 600, color: 'var(--teal)' }}>{fmtN(r.shippedQty || 0)}</span>
                       )}
                     </td>
-                    <td style={{ fontWeight: 700, color: pendingQty > 0 ? 'var(--red)' : 'var(--green)' }}>
-                      {fmtN(pendingQty)}
+                    <td style={{ fontWeight: 700, color: pending > 0 ? 'var(--red)' : 'var(--green)' }}>
+                      {fmtN(pending)}
                     </td>
-                    <td style={{ color: 'var(--green)', fontWeight: r.deliveredQty > 0 ? 600 : 400 }}>
-                      {fmtN(r.deliveredQty || 0)}
+                    <td style={{ color: 'var(--green)' }}>{fmtN(r.deliveredQty || 0)}</td>
+                    <td>
+                      <span className={'badge ' + (r.status === 'delivered' ? 'badge-ok' : r.status === 'fully_shipped' ? 'badge-transit' : r.status === 'partially_shipped' ? 'badge-urgent' : 'badge-po')}>
+                        {r.status === 'delivered' ? 'Delivered' : r.status === 'fully_shipped' ? 'Shipped' : r.status === 'partially_shipped' ? 'Part.Shipped' : 'Open'}
+                      </span>
                     </td>
-                    <td><StatusBadge status={r.status} /></td>
                     <td style={{ fontSize: 11, color: 'var(--muted)' }}>{r.poReference || '—'}</td>
                     {isAdmin && (
                       <td>
                         {r.status === 'fully_shipped' && (
-                          <button
-                            className="btn btn-success btn-xs"
-                            onClick={() => deliverMut.mutate({ id: r._id, deliveredQty: r.shippedQty })}
-                            disabled={deliverMut.isPending}
-                          >
+                          <button className="btn btn-success btn-xs"
+                            onClick={function() { deliverMut.mutate({ id: r._id, qty: r.shippedQty }); }}>
                             Deliver
                           </button>
-                        )}
-                        {r.status === 'delivered' && (
-                          <span style={{ fontSize: 10, color: 'var(--muted)' }}>Done</span>
                         )}
                       </td>
                     )}
@@ -425,66 +179,39 @@ export default function OpenPODashboard() {
         </div>
       )}
 
-      {/* Add Modal */}
-      {showAddModal && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowAddModal(false)}>
+      {modal && (
+        <div className="modal-overlay" onClick={function(e) { if (e.target === e.currentTarget) setModal(false); }}>
           <div className="modal">
             <div className="modal-header">
-              <div className="modal-title">Add {PORTAL_NAMES[activePortal]} Platform PO</div>
-              <button className="modal-close" onClick={() => setShowAddModal(false)}>x</button>
-            </div>
-            <div className="info-box" style={{ marginBottom: 14 }}>
-              This is a platform PO. {PORTAL_NAMES[activePortal]} has sent us an order to fulfill from our warehouse.
+              <div className="modal-title">Add {PNAMES[portal]} PO</div>
+              <button className="modal-close" onClick={function() { setModal(false); }}>x</button>
             </div>
             <div className="form-group">
               <label className="form-label">ASIN</label>
-              <input
-                className="form-input"
-                placeholder="B09XXXXX"
-                value={newPO.asin}
-                onChange={e => setNewPO({ ...newPO, asin: e.target.value })}
-              />
+              <input className="form-input" placeholder="B09XXXXX"
+                value={form.asin} onChange={function(e) { setForm({ asin: e.target.value, openPOQty: form.openPOQty, poReference: form.poReference, notes: form.notes }); }} />
             </div>
             <div className="form-group">
               <label className="form-label">Open PO Qty</label>
-              <input
-                className="form-input"
-                type="number"
-                min="0"
-                placeholder="e.g. 100"
-                value={newPO.openPOQty}
-                onChange={e => setNewPO({ ...newPO, openPOQty: e.target.value })}
-              />
+              <input className="form-input" type="number" min="0" placeholder="100"
+                value={form.openPOQty} onChange={function(e) { setForm({ asin: form.asin, openPOQty: e.target.value, poReference: form.poReference, notes: form.notes }); }} />
             </div>
             <div className="form-group">
-              <label className="form-label">PO Reference (optional)</label>
-              <input
-                className="form-input"
-                placeholder="AMZ-PO-2024-XXX"
-                value={newPO.poReference}
-                onChange={e => setNewPO({ ...newPO, poReference: e.target.value })}
-              />
+              <label className="form-label">PO Reference</label>
+              <input className="form-input" placeholder="AMZ-PO-XXX"
+                value={form.poReference} onChange={function(e) { setForm({ asin: form.asin, openPOQty: form.openPOQty, poReference: e.target.value, notes: form.notes }); }} />
             </div>
             <div className="form-group" style={{ marginBottom: 20 }}>
               <label className="form-label">Notes</label>
-              <input
-                className="form-input"
-                placeholder="Optional notes"
-                value={newPO.notes}
-                onChange={e => setNewPO({ ...newPO, notes: e.target.value })}
-              />
+              <input className="form-input" placeholder="Optional"
+                value={form.notes} onChange={function(e) { setForm({ asin: form.asin, openPOQty: form.openPOQty, poReference: form.poReference, notes: e.target.value }); }} />
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button className="btn btn-ghost" onClick={() => setShowAddModal(false)}>Cancel</button>
-              <button
-                className="btn btn-primary"
-                disabled={createMut.isPending}
-                onClick={() => createMut.mutate({
-                  ...newPO,
-                  portal: activePortal,
-                  openPOQty: parseInt(newPO.openPOQty) || 0
-                })}
-              >
+              <button className="btn btn-ghost" onClick={function() { setModal(false); }}>Cancel</button>
+              <button className="btn btn-primary" disabled={createMut.isPending}
+                onClick={function() {
+                  createMut.mutate({ asin: form.asin, portal: portal, openPOQty: parseInt(form.openPOQty) || 0, poReference: form.poReference, notes: form.notes });
+                }}>
                 {createMut.isPending ? 'Creating...' : 'Create PO'}
               </button>
             </div>

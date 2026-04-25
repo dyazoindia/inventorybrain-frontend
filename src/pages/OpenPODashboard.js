@@ -1,221 +1,181 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { portalPOApi, inventoryApi } from '../utils/api';
+import { inventoryApi } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { Empty, Loading, fmtN } from '../components/ui';
 import toast from 'react-hot-toast';
 
-const PORTALS = ['AMZ', 'FLK', 'ZPT', 'BLK'];
-const PNAMES = { AMZ: 'Amazon', FLK: 'Flipkart', ZPT: 'Zepto', BLK: 'Blinkit' };
-const PCOLORS = { AMZ: '#e65100', FLK: '#1565c0', ZPT: '#1b5e20', BLK: '#6a1b9a' };
+var PORTALS = ['AMZ', 'FLK', 'ZPT', 'BLK'];
+var PNAME = { AMZ: 'Amazon', FLK: 'Flipkart', ZPT: 'Zepto', BLK: 'Blinkit' };
+var PCOL = { AMZ: '#e65100', FLK: '#1565c0', ZPT: '#1b5e20', BLK: '#6a1b9a' };
 
 export default function OpenPODashboard() {
-  const { isAdmin, user } = useAuth();
-  const isOps = user && user.role === 'operations';
-  const qc = useQueryClient();
-  const [portal, setPortal] = useState('AMZ');
-  const [search, setSearch] = useState('');
-  const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({ asin: '', openPOQty: '', poReference: '', notes: '' });
+  var auth = useAuth();
+  var isAdmin = auth.isAdmin;
+  var portal = useState('AMZ');
+  var activePortal = portal[0];
+  var setPortal = portal[1];
+  var srch = useState('');
+  var search = srch[0];
+  var setSearch = srch[1];
 
-  const { data: poData, isLoading } = useQuery({
-    queryKey: ['portal-po', portal],
-    queryFn: function() { return portalPOApi.list({ portal: portal }).then(function(r) { return r.data; }); }
-  });
-
-  const { data: invData } = useQuery({
+  var inv = useQuery({
     queryKey: ['inventory-all'],
-    queryFn: function() { return inventoryApi.getLatest().then(function(r) { return r.data; }); }
+    queryFn: function() {
+      return inventoryApi.getLatest().then(function(r) { return r.data; });
+    }
   });
 
-  const shipMut = useMutation({
-    mutationFn: function(d) { return portalPOApi.ship(d.id, { shippedQty: d.qty }); },
-    onSuccess: function() { toast.success('Updated'); qc.invalidateQueries(['portal-po']); },
-    onError: function(e) { toast.error(e.response && e.response.data && e.response.data.error ? e.response.data.error : 'Failed'); }
-  });
+  var allRows = inv.data && inv.data.rows ? inv.data.rows : [];
 
-  const deliverMut = useMutation({
-    mutationFn: function(d) { return portalPOApi.deliver(d.id, { deliveredQty: d.qty }); },
-    onSuccess: function() { toast.success('Delivered'); qc.invalidateQueries(['portal-po']); },
-    onError: function(e) { toast.error('Failed'); }
-  });
-
-  const createMut = useMutation({
-    mutationFn: function(d) { return portalPOApi.create(d); },
-    onSuccess: function() {
-      toast.success('Created!');
-      qc.invalidateQueries(['portal-po']);
-      setModal(false);
-      setForm({ asin: '', openPOQty: '', poReference: '', notes: '' });
-    },
-    onError: function(e) { toast.error('Failed'); }
-  });
-
-  var allPOs = poData && poData.portalPOs ? poData.portalPOs : [];
-  var whMap = {};
-  var invRows = invData && invData.rows ? invData.rows : [];
-  invRows.forEach(function(r) { whMap[r.asin] = r.whInv; });
-
-  var rows = allPOs;
+  var filtered = allRows;
   if (search) {
     var q = search.toLowerCase();
-    rows = rows.filter(function(r) {
-      return (r.sku && r.sku.toLowerCase().indexOf(q) >= 0) ||
-             (r.asin && r.asin.toLowerCase().indexOf(q) >= 0);
+    filtered = allRows.filter(function(r) {
+      var s = r.sku ? r.sku.toLowerCase() : '';
+      var a = r.asin ? r.asin.toLowerCase() : '';
+      var t = r.title ? r.title.toLowerCase() : '';
+      return s.indexOf(q) >= 0 || a.indexOf(q) >= 0 || t.indexOf(q) >= 0;
     });
   }
 
-  if (isLoading) return <Loading text="Loading..." />;
+  if (inv.isLoading) {
+    return <Loading text="Loading..." />;
+  }
+
+  function getDocColor(v) {
+    if (!v && v !== 0) return 'var(--muted)';
+    if (v < 7) return 'var(--red)';
+    if (v < 15) return 'var(--orange)';
+    if (v < 30) return 'var(--yellow)';
+    return 'var(--green)';
+  }
+
+  function getStatus(doc, openPO) {
+    if (doc === null || doc === undefined) return null;
+    var hasPO = openPO > 0;
+    if (!hasPO && doc < 30) return 'PO Required';
+    if (hasPO && doc < 7) return 'Please Send';
+    if (hasPO && doc < 15) return 'Critical';
+    if (hasPO && doc < 30) return 'Urgent PO';
+    if (hasPO && doc >= 30) return 'PO Sent';
+    return null;
+  }
+
+  function getStatusCls(st) {
+    if (st === 'PO Required') return 'badge badge-po';
+    if (st === 'Please Send') return 'badge badge-critical';
+    if (st === 'Critical') return 'badge badge-critical';
+    if (st === 'Urgent PO') return 'badge badge-urgent';
+    if (st === 'PO Sent') return 'badge badge-ok';
+    return 'badge badge-gray';
+  }
+
+  function fmtDoc(v) {
+    if (v === null || v === undefined || !isFinite(v)) return '\u2014';
+    return (Math.round(v * 10) / 10) + 'd';
+  }
+
+  var portalKey = activePortal.toLowerCase();
 
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <div className="sec" style={{ marginBottom: 0 }}>Open PO Dashboard</div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {(isAdmin || isOps) && (
-            <button className="btn btn-primary btn-sm" onClick={function() { setModal(true); }}>
-              + Add PO
-            </button>
-          )}
+        <div className="sec" style={{ marginBottom: 0 }}>
+          Open PO Dashboard
         </div>
       </div>
 
       <div style={{ display: 'flex', marginBottom: 16, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)', width: 'fit-content' }}>
         {PORTALS.map(function(p) {
-          var active = portal === p;
+          var active = activePortal === p;
           return (
-            <button key={p} onClick={function() { setPortal(p); }}
+            <button key={p}
+              onClick={function() { setPortal(p); }}
               style={{
-                padding: '10px 18px', border: 'none', cursor: 'pointer',
-                fontFamily: 'inherit', fontSize: 12, fontWeight: active ? 700 : 500,
-                background: active ? PCOLORS[p] : '#f5f6fa',
-                color: active ? '#fff' : PCOLORS[p],
-                borderRight: p !== 'BLK' ? '1px solid rgba(0,0,0,.1)' : 'none'
+                padding: '10px 18px',
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                fontSize: 12,
+                fontWeight: active ? 700 : 500,
+                background: active ? PCOL[p] : '#f5f6fa',
+                color: active ? '#fff' : PCOL[p]
               }}>
-              {PNAMES[p]}
+              {PNAME[p]}
             </button>
           );
         })}
       </div>
 
       <div className="info-box" style={{ marginBottom: 14 }}>
-        <strong>Portal PO:</strong> Open PO = Platform demand | Pending = Open PO minus Shipped | Ops enters Shipped | Admin marks Delivered
+        <strong>Portal PO Status:</strong> Shows DOC and PO status per portal. PO Required = DOC below 30, no PO. Urgent/Critical = DOC below 30, PO exists.
       </div>
 
       <div className="filter-row" style={{ marginBottom: 12 }}>
-        <input className="filter-input" placeholder="Search SKU / ASIN..."
-          value={search} onChange={function(e) { setSearch(e.target.value); }} />
-        <span className="filter-count" style={{ marginLeft: 'auto' }}>{rows.length} rows</span>
+        <input
+          className="filter-input"
+          placeholder="Search SKU / ASIN / Title..."
+          value={search}
+          onChange={function(e) { setSearch(e.target.value); }}
+        />
+        <span className="filter-count" style={{ marginLeft: 'auto' }}>
+          {filtered.length} rows
+        </span>
       </div>
 
-      {rows.length === 0 ? (
-        <Empty icon="📦" title={'No ' + PNAMES[portal] + ' POs found'}
-          desc={(isAdmin || isOps) ? 'Add portal POs using the + button.' : 'No open POs yet.'} />
+      {filtered.length === 0 ? (
+        <Empty icon="📦" title="No products found" desc="Try clearing search." />
       ) : (
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
                 <th>SKU</th>
-                <th>Title</th>
+                <th style={{ minWidth: 140 }}>Title</th>
+                <th>Supplier</th>
                 <th>WH Inv</th>
-                <th>Open PO Qty</th>
-                <th>Shipped Qty</th>
-                <th>Pending Qty</th>
-                <th>Delivered</th>
-                <th>Status</th>
-                <th>PO Ref</th>
-                {isAdmin && <th>Action</th>}
+                <th>Open PO</th>
+                <th>Suggest Qty</th>
+                <th>AMZ DOC</th>
+                <th>FLK DOC</th>
+                <th>ZPT DOC</th>
+                <th>BLK DOC</th>
+                <th>Co. DOC</th>
+                <th>AMZ Status</th>
+                <th>FLK Status</th>
+                <th>ZPT Status</th>
+                <th>BLK Status</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map(function(r) {
-                var pending = Math.max(0, (r.openPOQty || 0) - (r.shippedQty || 0));
-                var wh = whMap[r.asin] || r.warehouseInvAtCreation || 0;
+              {filtered.map(function(r) {
+                var amzSt = getStatus(r.amzDOC, r.openPO);
+                var flkSt = getStatus(r.flkDOC, r.openPO);
+                var zptSt = getStatus(r.zptDOC, r.openPO);
+                var blkSt = getStatus(r.blkDOC, r.openPO);
                 return (
-                  <tr key={r._id}>
+                  <tr key={r.asin}>
                     <td style={{ fontWeight: 500 }}>{r.sku || r.asin}</td>
-                    <td style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 11 }}>{r.title || '—'}</td>
-                    <td style={{ color: wh < 20 ? 'var(--red)' : 'var(--text)', fontWeight: 500 }}>{fmtN(wh)}</td>
-                    <td style={{ fontWeight: 700, color: PCOLORS[portal] }}>{fmtN(r.openPOQty)}</td>
-                    <td style={{ background: '#fffde7' }}>
-                      {(isAdmin || isOps) && r.status !== 'delivered' ? (
-                        <button className="btn btn-ghost btn-xs"
-                          onClick={function() {
-                            var qty = prompt('Enter shipped qty:', r.shippedQty || 0);
-                            if (qty !== null) shipMut.mutate({ id: r._id, qty: parseInt(qty) || 0 });
-                          }}>
-                          {r.shippedQty || 'Enter'}
-                        </button>
-                      ) : (
-                        <span style={{ fontWeight: 600, color: 'var(--teal)' }}>{fmtN(r.shippedQty || 0)}</span>
-                      )}
-                    </td>
-                    <td style={{ fontWeight: 700, color: pending > 0 ? 'var(--red)' : 'var(--green)' }}>
-                      {fmtN(pending)}
-                    </td>
-                    <td style={{ color: 'var(--green)' }}>{fmtN(r.deliveredQty || 0)}</td>
-                    <td>
-                      <span className={'badge ' + (r.status === 'delivered' ? 'badge-ok' : r.status === 'fully_shipped' ? 'badge-transit' : r.status === 'partially_shipped' ? 'badge-urgent' : 'badge-po')}>
-                        {r.status === 'delivered' ? 'Delivered' : r.status === 'fully_shipped' ? 'Shipped' : r.status === 'partially_shipped' ? 'Part.Shipped' : 'Open'}
-                      </span>
-                    </td>
-                    <td style={{ fontSize: 11, color: 'var(--muted)' }}>{r.poReference || '—'}</td>
-                    {isAdmin && (
-                      <td>
-                        {r.status === 'fully_shipped' && (
-                          <button className="btn btn-success btn-xs"
-                            onClick={function() { deliverMut.mutate({ id: r._id, qty: r.shippedQty }); }}>
-                            Deliver
-                          </button>
-                        )}
-                      </td>
-                    )}
+                    <td style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 11 }}>{r.title || '\u2014'}</td>
+                    <td><span className="badge badge-supplier">{r.supplier}</span></td>
+                    <td style={{ fontWeight: 500, color: r.whInv === 0 ? 'var(--red)' : 'var(--text)' }}>{fmtN(r.whInv)}</td>
+                    <td style={{ color: r.openPO > 0 ? 'var(--green)' : 'var(--muted)', fontWeight: r.openPO > 0 ? 600 : 400 }}>{fmtN(r.openPO)}</td>
+                    <td style={{ color: 'var(--blue)', fontWeight: 600 }}>{r.suggestQty > 0 ? fmtN(r.suggestQty) : '\u2014'}</td>
+                    <td><span style={{ fontWeight: 600, color: getDocColor(r.amzDOC) }}>{fmtDoc(r.amzDOC)}</span></td>
+                    <td><span style={{ fontWeight: 600, color: getDocColor(r.flkDOC) }}>{fmtDoc(r.flkDOC)}</span></td>
+                    <td><span style={{ fontWeight: 600, color: getDocColor(r.zptDOC) }}>{fmtDoc(r.zptDOC)}</span></td>
+                    <td><span style={{ fontWeight: 600, color: getDocColor(r.blkDOC) }}>{fmtDoc(r.blkDOC)}</span></td>
+                    <td><span style={{ fontWeight: 700, color: getDocColor(r.companyDOC) }}>{fmtDoc(r.companyDOC)}</span></td>
+                    <td>{amzSt ? <span className={getStatusCls(amzSt)}>{amzSt}</span> : <span className="badge badge-gray">{'\u2014'}</span>}</td>
+                    <td>{flkSt ? <span className={getStatusCls(flkSt)}>{flkSt}</span> : <span className="badge badge-gray">{'\u2014'}</span>}</td>
+                    <td>{zptSt ? <span className={getStatusCls(zptSt)}>{zptSt}</span> : <span className="badge badge-gray">{'\u2014'}</span>}</td>
+                    <td>{blkSt ? <span className={getStatusCls(blkSt)}>{blkSt}</span> : <span className="badge badge-gray">{'\u2014'}</span>}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {modal && (
-        <div className="modal-overlay" onClick={function(e) { if (e.target === e.currentTarget) setModal(false); }}>
-          <div className="modal">
-            <div className="modal-header">
-              <div className="modal-title">Add {PNAMES[portal]} PO</div>
-              <button className="modal-close" onClick={function() { setModal(false); }}>x</button>
-            </div>
-            <div className="form-group">
-              <label className="form-label">ASIN</label>
-              <input className="form-input" placeholder="B09XXXXX"
-                value={form.asin} onChange={function(e) { setForm({ ...form, asin: e.target.value }); }} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Open PO Qty</label>
-              <input className="form-input" type="number" min="0" placeholder="100"
-                value={form.openPOQty} onChange={function(e) { setForm({ ...form, openPOQty: e.target.value }); }} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">PO Reference</label>
-              <input className="form-input" placeholder="AMZ-PO-XXX"
-                value={form.poReference} onChange={function(e) { setForm({ ...form, poReference: e.target.value }); }} />
-            </div>
-            <div className="form-group" style={{ marginBottom: 20 }}>
-              <label className="form-label">Notes</label>
-              <input className="form-input" placeholder="Optional"
-                value={form.notes} onChange={function(e) { setForm({ ...form, notes: e.target.value }); }} />
-            </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button className="btn btn-ghost" onClick={function() { setModal(false); }}>Cancel</button>
-              <button className="btn btn-primary" disabled={createMut.isPending}
-                onClick={function() {
-                  createMut.mutate({ asin: form.asin, portal: portal, openPOQty: parseInt(form.openPOQty) || 0, poReference: form.poReference, notes: form.notes });
-                }}>
-                {createMut.isPending ? 'Creating...' : 'Create PO'}
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>

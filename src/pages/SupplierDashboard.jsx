@@ -155,8 +155,12 @@ export default function SupplierDashboard({ supplier }) {
         <td><input type="checkbox" checked={sel.selected.has(r.asin)} onChange={function(){sel.toggle(r.asin);}}/></td>
         {baseTd}
         <td style={{color:'var(--blue)',fontWeight:600}}>{r.suggestQty>0?fmtN(r.suggestQty):'-'}</td>
-        <td style={{background:'#fffde7',fontWeight:700,color:po&&po.finalQty?'var(--green)':'var(--muted)',textAlign:'center'}}>
-          {po&&po.finalQty?fmtN(po.finalQty):'Waiting Admin'}
+        <td style={{background:'#fffde7',textAlign:'center'}}>
+          {!po&&<span style={{color:'var(--muted)',fontSize:11}}>Waiting Admin</span>}
+          {po&&po.status==='admin_approved'&&<span style={{fontWeight:700,color:'var(--green)'}}>{fmtN(po.finalQty)}</span>}
+          {po&&po.status==='supplier_confirmed'&&<span className="badge badge-confirmed">In Mfg</span>}
+          {po&&po.status==='shipped'&&<span className="badge badge-transit">In Transit</span>}
+          {po&&po.status==='delivered'&&<span className="badge badge-ok">Delivered</span>}
         </td>
         <td>
           {po&&po.status==='admin_approved'&&!isAdmin?(
@@ -247,7 +251,13 @@ export default function SupplierDashboard({ supplier }) {
         <td><input type="checkbox" checked={sel.selected.has(r.asin)} onChange={function(){sel.toggle(r.asin);}}/></td>
         {baseTd}
         <td style={{color:r.suggestQty>0?'var(--blue)':'var(--muted)',fontWeight:r.suggestQty>0?600:400}}>{r.suggestQty>0?fmtN(r.suggestQty):'-'}</td>
-        <td style={{background:'#fffde7',fontWeight:700,color:po&&po.finalQty?'var(--green)':'var(--muted)',textAlign:'center'}}>{po&&po.finalQty?fmtN(po.finalQty):'-'}</td>
+        <td style={{background:'#fffde7',textAlign:'center'}}>
+          {!po&&<span style={{color:'var(--muted)',fontSize:11}}>-</span>}
+          {po&&po.status==='admin_approved'&&<span style={{fontWeight:700,color:'var(--green)'}}>{fmtN(po.finalQty)}</span>}
+          {po&&po.status==='supplier_confirmed'&&<span className="badge badge-confirmed">In Mfg</span>}
+          {po&&po.status==='shipped'&&<span className="badge badge-transit">In Transit</span>}
+          {po&&po.status==='delivered'&&<span className="badge badge-ok">Delivered</span>}
+        </td>
         <td style={{background:'#e0f2fe',color:r.mfgQty>0?'#0891b2':'var(--muted)',fontWeight:r.mfgQty>0?600:400,textAlign:'center'}}>{r.mfgQty>0?fmtN(r.mfgQty):'-'}</td>
         <td style={{background:'#fef3c7',color:r.inTransit>0?'#d97706':'var(--muted)',fontWeight:r.inTransit>0?600:400,textAlign:'center'}}>{r.inTransit>0?fmtN(r.inTransit):'-'}</td>
         <td style={{color:'var(--green)',fontWeight:po&&po.deliveredQty?600:400}}>{po&&po.deliveredQty?fmtN(po.deliveredQty):'-'}</td>

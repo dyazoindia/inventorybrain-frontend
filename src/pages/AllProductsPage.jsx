@@ -19,74 +19,58 @@ var docColor = function(v) {
   return 'var(--red)';
 };
 
-var FROZEN_COLS = ['link', 'sku', 'ean', 'title', 'supplier', 'category'];
 var FROZEN_WIDTHS = { link: 50, sku: 90, ean: 120, title: 180, supplier: 80, category: 90 };
+var FROZEN_KEYS = ['link', 'sku', 'ean', 'title', 'supplier', 'category'];
 
 var ALL_COLUMNS = [
-  { key: 'link',          label: 'Link',          frozen: true },
-  { key: 'sku',           label: 'SKU',           frozen: true, always: true },
-  { key: 'ean',           label: 'EAN',           frozen: true },
-  { key: 'title',         label: 'Title',         frozen: true, always: true },
-  { key: 'supplier',      label: 'Supplier',      frozen: true },
-  { key: 'category',      label: 'Category',      frozen: true },
-  { key: 'whInv',         label: 'WH Inv' },
-  { key: 'amzInv',        label: 'AMZ Inv' },
-  { key: 'flkInv',        label: 'FLK Inv' },
-  { key: 'zptInv',        label: 'ZPT Inv' },
-  { key: 'blkInv',        label: 'BLK Inv' },
-  { key: 'amzDRR',        label: 'AMZ DRR' },
-  { key: 'flkDRR',        label: 'FLK DRR' },
-  { key: 'zptDRR',        label: 'ZPT DRR' },
-  { key: 'blkDRR',        label: 'BLK DRR' },
-  { key: 'openPO',        label: 'Open PO' },
-  { key: 'mfgQty',        label: 'Mfg Qty' },
-  { key: 'totalInv',      label: 'Total Inv' },
-  { key: 'totalDRR',      label: 'Total DRR' },
-  { key: 'whDOC',         label: 'WH DOC' },
-  { key: 'amzDOC',        label: 'AMZ DOC' },
-  { key: 'flkDOC',        label: 'FLK DOC' },
-  { key: 'zptDOC',        label: 'ZPT DOC' },
-  { key: 'blkDOC',        label: 'BLK DOC' },
-  { key: 'companyDOC',    label: 'Co. DOC',       always: true },
-  { key: 'health',        label: 'Health',         always: true },
-  { key: 'suggestQty',    label: 'Suggest Qty' },
-  { key: 'finalQty',      label: 'Final Qty',      always: true },
-  { key: 'actionType',    label: 'Action Type',    always: true },
+  { key: 'link',       label: 'Link',       frozen: true },
+  { key: 'sku',        label: 'SKU',        frozen: true, always: true },
+  { key: 'ean',        label: 'EAN',        frozen: true },
+  { key: 'title',      label: 'Title',      frozen: true, always: true },
+  { key: 'supplier',   label: 'Supplier',   frozen: true },
+  { key: 'category',   label: 'Category',   frozen: true },
+  { key: 'whInv',      label: 'WH Inv' },
+  { key: 'amzInv',     label: 'AMZ Inv' },
+  { key: 'flkInv',     label: 'FLK Inv' },
+  { key: 'zptInv',     label: 'ZPT Inv' },
+  { key: 'blkInv',     label: 'BLK Inv' },
+  { key: 'amzDRR',     label: 'AMZ DRR' },
+  { key: 'flkDRR',     label: 'FLK DRR' },
+  { key: 'zptDRR',     label: 'ZPT DRR' },
+  { key: 'blkDRR',     label: 'BLK DRR' },
+  { key: 'openPO',     label: 'Open PO' },
+  { key: 'mfgQty',     label: 'Mfg Qty' },
+  { key: 'totalInv',   label: 'Total Inv' },
+  { key: 'totalDRR',   label: 'Total DRR' },
+  { key: 'whDOC',      label: 'WH DOC' },
+  { key: 'amzDOC',     label: 'AMZ DOC' },
+  { key: 'flkDOC',     label: 'FLK DOC' },
+  { key: 'zptDOC',     label: 'ZPT DOC' },
+  { key: 'blkDOC',     label: 'BLK DOC' },
+  { key: 'companyDOC', label: 'Co. DOC',    always: true },
+  { key: 'health',     label: 'Health',      always: true },
+  { key: 'suggestQty', label: 'Suggest Qty' },
+  { key: 'finalQty',   label: 'Final Qty',   always: true },
+  { key: 'actionType', label: 'Action Type', always: true },
   { key: 'actionDetails', label: 'Action Details' }
 ];
 
-var DEFAULT_VIS = new Set([
-  'link','sku','ean','title','supplier','category','whInv',
-  'amzInv','flkInv','zptInv','blkInv','openPO','mfgQty',
-  'amzDRR','flkDRR','zptDRR','blkDRR',
-  'whDOC','amzDOC','flkDOC','zptDOC','blkDOC',
-  'totalInv','totalDRR','companyDOC','health',
-  'suggestQty','finalQty','actionType','actionDetails'
-]);
-
-function getFrozenLeft(key, visibleCols) {
-  var left = 32;
-  for (var i = 0; i < visibleCols.length; i++) {
-    if (visibleCols[i].key === key) return left;
-    if (visibleCols[i].frozen) left += FROZEN_WIDTHS[visibleCols[i].key] || 80;
-  }
-  return 0;
-}
+var DEFAULT_VIS = new Set(ALL_COLUMNS.map(function(c) { return c.key; }));
 
 export default function AllProductsPage({ initialFilter }) {
   var auth = useAuth();
   var isAdmin = auth.isAdmin;
   var qc = useQueryClient();
 
-  var [search, setSearch]       = useState('');
-  var [fSupplier, setFSupplier] = useState('all');
-  var [fCategory, setFCategory] = useState('all');
-  var [fAlert, setFAlert]       = useState(initialFilter || 'all');
-  var [fAction, setFAction]     = useState('all');
-  var [visible, setVisible]     = useState(DEFAULT_VIS);
-  var [showCols, setShowCols]   = useState(false);
-  var [editQtys, setEditQtys]   = useState({});
-  var [editingAsin, setEditingAsin] = useState(null);
+  var s1 = useState('');       var search = s1[0];      var setSearch = s1[1];
+  var s2 = useState('all');    var fSupplier = s2[0];   var setFSupplier = s2[1];
+  var s3 = useState('all');    var fCategory = s3[0];   var setFCategory = s3[1];
+  var s4 = useState(initialFilter || 'all'); var fAlert = s4[0]; var setFAlert = s4[1];
+  var s5 = useState('all');    var fAction = s5[0];     var setFAction = s5[1];
+  var s6 = useState(DEFAULT_VIS); var visible = s6[0];  var setVisible = s6[1];
+  var s7 = useState(false);    var showCols = s7[0];    var setShowCols = s7[1];
+  var s8 = useState({});       var editQtys = s8[0];    var setEditQtys = s8[1];
+  var s9 = useState(null);     var editingAsin = s9[0]; var setEditingAsin = s9[1];
 
   var inv = useQuery({
     queryKey: ['inventory-all'],
@@ -94,82 +78,69 @@ export default function AllProductsPage({ initialFilter }) {
   });
 
   var poQ = useQuery({
-    queryKey: ['pos-all-products'],
+    queryKey: ['pos-all'],
     queryFn: function() { return supplierPOApi.list().then(function(r) { return r.data; }); }
   });
 
-  var setFinalQtyMut = useMutation({
+  var setFinalMut = useMutation({
     mutationFn: function(d) { return supplierPOApi.setFinalQty(d); },
-    onSuccess: function() { toast.success('Final Qty saved!'); qc.invalidateQueries(['pos-all-products']); setEditingAsin(null); },
-    onError: function(err) { toast.error('Failed to save'); }
+    onSuccess: function() { toast.success('Saved!'); qc.invalidateQueries(['pos-all']); qc.invalidateQueries(['inventory-all']); setEditingAsin(null); },
+    onError: function() { toast.error('Failed'); }
   });
 
-  var allRows = inv.data && inv.data.rows ? inv.data.rows : [];
+  var allRows = (inv.data && inv.data.rows) ? inv.data.rows : [];
 
-  var poMap = useMemo(function() {
-    var m = {};
-    var pos = poQ.data && poQ.data.purchaseOrders ? poQ.data.purchaseOrders : [];
-    pos.forEach(function(po) { m[po.asin] = po; });
-    return m;
-  }, [poQ.data]);
+  var poMap = {};
+  var poList = (poQ.data && poQ.data.purchaseOrders) ? poQ.data.purchaseOrders : [];
+  poList.forEach(function(po) { poMap[po.asin] = po; });
 
-  // FIXED: Strict AND filtering
-  var rows = useMemo(function() {
-    var r = allRows.slice();
-    if (search) {
-      var q = search.toLowerCase();
-      r = r.filter(function(x) {
-        return (x.asin && x.asin.toLowerCase().indexOf(q) >= 0) ||
-               (x.sku && x.sku.toLowerCase().indexOf(q) >= 0) ||
-               (x.title && x.title.toLowerCase().indexOf(q) >= 0) ||
-               (x.ean && x.ean.toLowerCase().indexOf(q) >= 0);
-      });
-    }
-    if (fSupplier !== 'all') {
-      r = r.filter(function(x) { return x.supplier === fSupplier; });
-    }
-    if (fCategory !== 'all') {
-      r = r.filter(function(x) { return x.category === fCategory; });
-    }
-    // FIX #7: Action filter - STRICT match only
-    if (fAction === 'supplier_po_required') {
-      r = r.filter(function(x) { return x.actionType === 'supplier_po_required' || x.suggestQty > 0; });
-    } else if (fAction === 'supplier_po_inprogress') {
-      r = r.filter(function(x) { return x.actionType === 'supplier_po_inprogress'; });
-    } else if (fAction === 'no_action') {
-      r = r.filter(function(x) { return x.actionType === 'no_action' && x.suggestQty <= 0; });
-    }
-    // DOC filter
-    if (fAlert === 'critical')    r = r.filter(function(x) { return x.companyDOC !== null && x.companyDOC < 7; });
-    else if (fAlert === 'urgent') r = r.filter(function(x) { return x.companyDOC !== null && x.companyDOC >= 7 && x.companyDOC < 15; });
-    else if (fAlert === 'po')     r = r.filter(function(x) { return x.companyDOC !== null && x.companyDOC >= 15 && x.companyDOC < 30; });
-    else if (fAlert === 'low')    r = r.filter(function(x) { return x.companyDOC !== null && x.companyDOC < 30; });
-    else if (fAlert === 'dead')   r = r.filter(function(x) { return x.companyDOC !== null && x.companyDOC > 180; });
-    else if (fAlert === 'over')   r = r.filter(function(x) { return x.companyDOC !== null && x.companyDOC > 120; });
-    return r;
-  }, [allRows, search, fSupplier, fCategory, fAlert, fAction]);
+  // Filter rows
+  var rows = allRows;
 
-  // Counts from ALL rows
-  var actionCounts = useMemo(function() {
-    return {
-      supplier_po_required:   allRows.filter(function(r) { return r.actionType === 'supplier_po_required' || r.suggestQty > 0; }).length,
-      supplier_po_inprogress: allRows.filter(function(r) { return r.actionType === 'supplier_po_inprogress'; }).length,
-      no_action:              allRows.filter(function(r) { return r.actionType === 'no_action' && r.suggestQty <= 0; }).length
-    };
-  }, [allRows]);
+  if (search) {
+    var q = search.toLowerCase();
+    rows = rows.filter(function(x) {
+      return (x.asin && x.asin.toLowerCase().indexOf(q) >= 0) ||
+             (x.sku && x.sku.toLowerCase().indexOf(q) >= 0) ||
+             (x.title && x.title.toLowerCase().indexOf(q) >= 0) ||
+             (x.ean && x.ean.toLowerCase().indexOf(q) >= 0);
+    });
+  }
+  if (fSupplier !== 'all') rows = rows.filter(function(x) { return x.supplier === fSupplier; });
+  if (fCategory !== 'all') rows = rows.filter(function(x) { return x.category === fCategory; });
 
-  var suppliers = useMemo(function() {
-    var s = new Set();
-    allRows.forEach(function(r) { if (r.supplier) s.add(r.supplier); });
-    return Array.from(s).sort();
-  }, [allRows]);
+  // Action filter - includes suggestQty > 0 for "PO Required"
+  if (fAction === 'supplier_po_required') {
+    rows = rows.filter(function(x) { return x.actionType === 'supplier_po_required' || (x.suggestQty && x.suggestQty > 0); });
+  } else if (fAction === 'supplier_po_inprogress') {
+    rows = rows.filter(function(x) { return x.actionType === 'supplier_po_inprogress'; });
+  } else if (fAction === 'no_action') {
+    rows = rows.filter(function(x) { return x.actionType === 'no_action' || (!x.actionType && (!x.suggestQty || x.suggestQty <= 0)); });
+  }
 
-  var categories = useMemo(function() {
-    var base = fSupplier !== 'all' ? allRows.filter(function(r) { return r.supplier === fSupplier; }) : allRows;
-    var s = new Set();
-    base.forEach(function(r) { if (r.category) s.add(r.category); });
-    return Array.from(s).sort();
-  }, [allRows, fSupplier]);
+  // DOC filter
+  if (fAlert === 'critical') rows = rows.filter(function(x) { return x.companyDOC !== null && x.companyDOC < 7; });
+  else if (fAlert === 'urgent') rows = rows.filter(function(x) { return x.companyDOC !== null && x.companyDOC >= 7 && x.companyDOC < 15; });
+  else if (fAlert === 'po') rows = rows.filter(function(x) { return x.companyDOC !== null && x.companyDOC >= 15 && x.companyDOC < 30; });
+  else if (fAlert === 'low') rows = rows.filter(function(x) { return x.companyDOC !== null && x.companyDOC < 30; });
+  else if (fAlert === 'dead') rows = rows.filter(function(x) { return x.companyDOC !== null && x.companyDOC > 180; });
+  else if (fAlert === 'over') rows = rows.filter(function(x) { return x.companyDOC !== null && x.companyDOC > 120; });
+
+  // Counts from allRows
+  var poReqCount = allRows.filter(function(r) { return r.actionType === 'supplier_po_required' || (r.suggestQty && r.suggestQty > 0); }).length;
+  var inProgCount = allRows.filter(function(r) { return r.actionType === 'supplier_po_inprogress'; }).length;
+  var noActCount = allRows.length - poReqCount - inProgCount;
+
+  var suppliers = [];
+  var supSet = {};
+  allRows.forEach(function(r) { if (r.supplier && !supSet[r.supplier]) { supSet[r.supplier] = 1; suppliers.push(r.supplier); } });
+  suppliers.sort();
+
+  var catBase = fSupplier !== 'all' ? allRows.filter(function(r) { return r.supplier === fSupplier; }) : allRows;
+  var categories = [];
+  var catSet = {};
+  catBase.forEach(function(r) { if (r.category && !catSet[r.category]) { catSet[r.category] = 1; categories.push(r.category); } });
+  categories.sort();
 
   var sel = useSelection(rows);
 
@@ -181,42 +152,31 @@ export default function AllProductsPage({ initialFilter }) {
     setVisible(next);
   };
 
-  var doExport = function(exportRows) {
+  var doExport = function(expRows) {
     var visCols = ALL_COLUMNS.filter(function(c) { return visible.has(c.key); });
-    exportToCSV(exportRows, visCols.map(function(c) {
-      return {
-        key: c.key, label: c.label,
-        getValue: function(r) {
-          var po = poMap[r.asin];
-          if (c.key === 'finalQty') return po ? po.finalQty || '' : '';
-          if (c.key === 'health') return r.healthStatus || '';
-          if (c.key === 'title') return r.title || '';
-          if (['amzDRR','flkDRR','zptDRR','blkDRR','totalDRR'].indexOf(c.key) >= 0) return fmtDRR(r[c.key]);
-          return r[c.key] !== undefined ? r[c.key] : '';
-        }
-      };
+    exportToCSV(expRows, visCols.map(function(c) {
+      return { key: c.key, label: c.label, getValue: function(r) { return r[c.key] !== undefined ? r[c.key] : ''; } };
     }), 'inventory_export');
   };
 
   var saveFinalQty = function(asin) {
     var qty = parseInt(editQtys[asin]);
-    if (isNaN(qty) || qty < 0) { toast.error('Enter a valid quantity'); return; }
-    setFinalQtyMut.mutate({ asin: asin, finalQty: qty });
+    if (isNaN(qty) || qty < 0) { toast.error('Enter valid qty'); return; }
+    setFinalMut.mutate({ asin: asin, finalQty: qty });
   };
 
   if (inv.isLoading) return <Loading text="Loading products..." />;
 
   var visibleCols = ALL_COLUMNS.filter(function(c) { return visible.has(c.key); });
 
-  var frozenStyle = function(key, isHeader) {
-    if (FROZEN_COLS.indexOf(key) < 0) return {};
-    var left = getFrozenLeft(key, visibleCols);
-    return {
-      position: 'sticky',
-      left: left,
-      zIndex: isHeader ? 4 : 2,
-      background: isHeader ? 'var(--card)' : 'inherit'
-    };
+  // Calculate frozen column left positions
+  var getFrozenLeft = function(key) {
+    var left = 32; // checkbox width
+    for (var i = 0; i < visibleCols.length; i++) {
+      if (visibleCols[i].key === key) return left;
+      if (visibleCols[i].frozen) left += FROZEN_WIDTHS[visibleCols[i].key] || 80;
+    }
+    return 0;
   };
 
   return (
@@ -226,49 +186,39 @@ export default function AllProductsPage({ initialFilter }) {
           All Products <small>({rows.length} of {allRows.length} SKUs)</small>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          {sel.count > 0 && (
-            <button className="btn btn-success btn-sm" onClick={function() { doExport(sel.selectedRows); }}>
-              Export Selected ({sel.count})
-            </button>
-          )}
+          {sel.count > 0 && <button className="btn btn-success btn-sm" onClick={function() { doExport(sel.selectedRows); }}>Export ({sel.count})</button>}
           <button className="btn btn-ghost" onClick={function() { doExport(rows); }}>Export All</button>
           <button className="btn btn-ghost" onClick={function() { setShowCols(!showCols); }}>Columns</button>
         </div>
       </div>
 
-      {/* Action Chips */}
+      {/* Action chips */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
         {[
-          { key: 'all',                    label: 'All',                    count: allRows.length,                       color: 'var(--text)',  bg: 'var(--bg3)' },
-          { key: 'supplier_po_required',   label: 'Supplier PO Required',   count: actionCounts.supplier_po_required,   color: 'var(--red)',   bg: 'var(--red-lt)' },
-          { key: 'supplier_po_inprogress', label: 'Supplier PO In Progress',count: actionCounts.supplier_po_inprogress, color: 'var(--blue)',  bg: 'var(--blue-lt)' },
-          { key: 'no_action',              label: 'No Action',              count: actionCounts.no_action,              color: 'var(--green)', bg: 'var(--green-lt)' }
+          { key: 'all',                    label: 'All',                    count: allRows.length, color: 'var(--text)',  bg: 'var(--bg3)' },
+          { key: 'supplier_po_required',   label: 'Supplier PO Required',  count: poReqCount,     color: 'var(--red)',   bg: 'var(--red-lt)' },
+          { key: 'supplier_po_inprogress', label: 'PO In Progress',        count: inProgCount,    color: 'var(--blue)',  bg: 'var(--blue-lt)' },
+          { key: 'no_action',              label: 'No Action',             count: noActCount,     color: 'var(--green)', bg: 'var(--green-lt)' }
         ].map(function(a) {
           return (
-            <div key={a.key}
-              onClick={function() { setFAction(a.key); }}
-              style={{
-                padding: '7px 14px', borderRadius: 20, fontSize: 12, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: fAction === a.key ? a.color : a.bg,
-                color: fAction === a.key ? '#fff' : a.color,
-                border: '1px solid ' + a.color,
-                fontWeight: fAction === a.key ? 700 : 500
-              }}>
+            <div key={a.key} onClick={function() { setFAction(a.key); }}
+              style={{ padding: '7px 14px', borderRadius: 20, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                background: fAction === a.key ? a.color : a.bg, color: fAction === a.key ? '#fff' : a.color,
+                border: '1px solid ' + a.color, fontWeight: fAction === a.key ? 700 : 500 }}>
               <span style={{ fontWeight: 700, fontSize: 15 }}>{a.count}</span> {a.label}
             </div>
           );
         })}
       </div>
 
-      {/* Column Picker */}
+      {/* Column picker */}
       {showCols && (
         <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, marginBottom: 14, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {ALL_COLUMNS.map(function(col) {
             return (
               <label key={col.key} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, cursor: col.always ? 'not-allowed' : 'pointer', opacity: col.always ? 0.6 : 1 }}>
                 <input type="checkbox" checked={visible.has(col.key)} onChange={function() { toggleCol(col.key); }} disabled={col.always} />
-                {col.label} {col.frozen ? '(pinned)' : ''}
+                {col.label}
               </label>
             );
           })}
@@ -279,8 +229,7 @@ export default function AllProductsPage({ initialFilter }) {
       <div className="filter-row" style={{ marginBottom: 12 }}>
         <input className="filter-input" placeholder="Search SKU / ASIN / EAN / Title..."
           value={search} onChange={function(e) { setSearch(e.target.value); }} style={{ width: 220 }} />
-        <select className="filter-select" value={fSupplier}
-          onChange={function(e) { setFSupplier(e.target.value); setFCategory('all'); }}>
+        <select className="filter-select" value={fSupplier} onChange={function(e) { setFSupplier(e.target.value); setFCategory('all'); }}>
           <option value="all">All Suppliers</option>
           {suppliers.map(function(s) { return <option key={s} value={s}>{s}</option>; })}
         </select>
@@ -289,11 +238,11 @@ export default function AllProductsPage({ initialFilter }) {
           {categories.map(function(c) { return <option key={c} value={c}>{c}</option>; })}
         </select>
         <select className="filter-select" value={fAlert} onChange={function(e) { setFAlert(e.target.value); }}>
-          <option value="all">All DOC Levels</option>
+          <option value="all">All DOC</option>
           <option value="critical">Critical</option>
           <option value="urgent">Urgent</option>
           <option value="po">PO Required</option>
-          <option value="dead">Dead Stock</option>
+          <option value="dead">Dead</option>
           <option value="over">Overstock</option>
         </select>
         {(search || fSupplier !== 'all' || fCategory !== 'all' || fAlert !== 'all' || fAction !== 'all') && (
@@ -302,7 +251,6 @@ export default function AllProductsPage({ initialFilter }) {
         <span className="filter-count" style={{ marginLeft: 'auto' }}>{rows.length} rows</span>
       </div>
 
-      {/* Selection bar */}
       {sel.count > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--blue-lt)', borderRadius: 8, padding: '8px 14px', marginBottom: 10 }}>
           <span style={{ fontSize: 12, color: 'var(--blue)', fontWeight: 500 }}>{sel.count} selected</span>
@@ -311,7 +259,7 @@ export default function AllProductsPage({ initialFilter }) {
         </div>
       )}
 
-      {!rows.length ? <Empty icon="🔍" title="No products found" desc="Try clearing filters." /> : (
+      {rows.length === 0 ? <Empty icon="🔍" title="No products found" desc="Try clearing filters." /> : (
         <div className="table-wrap" style={{ overflow: 'auto', maxHeight: '75vh' }}>
           <table style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
             <thead>
@@ -322,33 +270,39 @@ export default function AllProductsPage({ initialFilter }) {
                     onChange={function(e) { sel.toggleAll(e.target.checked); }} />
                 </th>
                 {visibleCols.map(function(c) {
-                  var style = Object.assign(
-                    { position: 'sticky', top: 0, zIndex: c.frozen ? 5 : 3, background: 'var(--card)', borderBottom: '2px solid var(--border)' },
-                    c.frozen ? { position: 'sticky', left: getFrozenLeft(c.key, visibleCols), zIndex: 5 } : {},
-                    c.key === 'finalQty' ? { background: '#fffde7', color: 'var(--yellow)', fontWeight: 700 } : {}
-                  );
-                  return <th key={c.key} style={style}>{c.label}</th>;
+                  var s = { position: 'sticky', top: 0, zIndex: 3, background: 'var(--card)', borderBottom: '2px solid var(--border)' };
+                  if (c.frozen) { s.position = 'sticky'; s.left = getFrozenLeft(c.key); s.zIndex = 5; }
+                  if (c.key === 'finalQty') { s.background = '#fffde7'; s.color = 'var(--yellow)'; s.fontWeight = 700; }
+                  if (c.key === 'category') { s.borderRight = '2px solid var(--border2)'; }
+                  return <th key={c.key} style={s}>{c.label}</th>;
                 })}
               </tr>
             </thead>
             <tbody>
               {rows.map(function(r) {
                 var po = poMap[r.asin];
-                var isEditing = editingAsin === r.asin;
+                var isEd = editingAsin === r.asin;
                 var fq = editQtys[r.asin] !== undefined ? editQtys[r.asin] : (po && po.finalQty ? po.finalQty : '');
-                var rowBg = sel.selected.has(r.asin) ? 'var(--blue-lt)' : 'var(--card)';
+                var bg = sel.selected.has(r.asin) ? 'var(--blue-lt)' : 'var(--card)';
+
+                var frozenTdStyle = function(key) {
+                  if (FROZEN_KEYS.indexOf(key) < 0) return {};
+                  var st = { position: 'sticky', left: getFrozenLeft(key), zIndex: 2, background: bg };
+                  if (key === 'category') st.borderRight = '2px solid var(--border2)';
+                  return st;
+                };
 
                 return (
-                  <tr key={r.asin} style={{ background: rowBg }}>
-                    <td style={{ position: 'sticky', left: 0, zIndex: 1, background: rowBg }}>
+                  <tr key={r.asin} style={{ background: bg }}>
+                    <td style={{ position: 'sticky', left: 0, zIndex: 1, background: bg }}>
                       <input type="checkbox" checked={sel.selected.has(r.asin)} onChange={function() { sel.toggle(r.asin); }} />
                     </td>
-                    {visible.has('link') && <td style={Object.assign({ background: rowBg }, frozenStyle('link', false))}>{r.productLink ? <a className="link-btn" href={r.productLink} target="_blank" rel="noreferrer">Link</a> : '\u2014'}</td>}
-                    {visible.has('sku') && <td style={Object.assign({ fontWeight: 500, background: rowBg }, frozenStyle('sku', false))}>{r.sku || '\u2014'}</td>}
-                    {visible.has('ean') && <td style={Object.assign({ fontSize: 10, color: 'var(--subtle)', fontFamily: 'monospace', background: rowBg }, frozenStyle('ean', false))}>{r.ean || '\u2014'}</td>}
-                    {visible.has('title') && <td style={Object.assign({ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 11, background: rowBg }, frozenStyle('title', false))}>{r.title || '\u2014'}</td>}
-                    {visible.has('supplier') && <td style={Object.assign({ background: rowBg }, frozenStyle('supplier', false))}><span className="badge badge-supplier">{r.supplier || '\u2014'}</span></td>}
-                    {visible.has('category') && <td style={Object.assign({ fontSize: 11, color: 'var(--muted)', background: rowBg, borderRight: '2px solid var(--border2)' }, frozenStyle('category', false))}>{r.category || '\u2014'}</td>}
+                    {visible.has('link') && <td style={frozenTdStyle('link')}>{r.productLink ? <a className="link-btn" href={r.productLink} target="_blank" rel="noreferrer">Link</a> : '\u2014'}</td>}
+                    {visible.has('sku') && <td style={Object.assign({ fontWeight: 500 }, frozenTdStyle('sku'))}>{r.sku || '\u2014'}</td>}
+                    {visible.has('ean') && <td style={Object.assign({ fontSize: 10, fontFamily: 'monospace', color: 'var(--subtle)' }, frozenTdStyle('ean'))}>{r.ean || '\u2014'}</td>}
+                    {visible.has('title') && <td style={Object.assign({ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 11 }, frozenTdStyle('title'))}>{r.title || '\u2014'}</td>}
+                    {visible.has('supplier') && <td style={frozenTdStyle('supplier')}><span className="badge badge-supplier">{r.supplier || '\u2014'}</span></td>}
+                    {visible.has('category') && <td style={Object.assign({ fontSize: 11, color: 'var(--muted)' }, frozenTdStyle('category'))}>{r.category || '\u2014'}</td>}
                     {visible.has('whInv') && <td style={{ fontWeight: r.whInv === 0 ? 700 : 500, color: r.whInv === 0 ? 'var(--red)' : 'var(--text)' }}>{fmtN(r.whInv)}</td>}
                     {visible.has('amzInv') && <td>{fmtN(r.amzInv)}</td>}
                     {visible.has('flkInv') && <td>{fmtN(r.flkInv)}</td>}
@@ -359,7 +313,7 @@ export default function AllProductsPage({ initialFilter }) {
                     {visible.has('zptDRR') && <td>{fmtDRR(r.zptDRR)}</td>}
                     {visible.has('blkDRR') && <td>{fmtDRR(r.blkDRR)}</td>}
                     {visible.has('openPO') && <td style={{ color: r.openPO > 0 ? 'var(--green)' : 'var(--muted)', fontWeight: r.openPO > 0 ? 600 : 400 }}>{fmtN(r.openPO)}</td>}
-                    {visible.has('mfgQty') && <td>{fmtN(r.mfgQty)}</td>}
+                    {visible.has('mfgQty') && <td style={{ color: r.mfgQty > 0 ? 'var(--blue)' : 'var(--muted)', fontWeight: r.mfgQty > 0 ? 600 : 400 }}>{fmtN(r.mfgQty)}</td>}
                     {visible.has('totalInv') && <td style={{ fontWeight: 500 }}>{fmtN(r.totalInv)}</td>}
                     {visible.has('totalDRR') && <td>{fmtDRR(r.totalDRR)}</td>}
                     {visible.has('whDOC') && <td><span style={{ fontWeight: 600, color: docColor(r.whDOC) }}>{fmtDoc(r.whDOC)}</span></td>}
@@ -373,7 +327,7 @@ export default function AllProductsPage({ initialFilter }) {
                     {visible.has('finalQty') && (
                       <td style={{ background: '#fffde7' }}>
                         {isAdmin ? (
-                          isEditing ? (
+                          isEd ? (
                             <div style={{ display: 'flex', gap: 4 }}>
                               <input type="number" min="0" value={fq} autoFocus
                                 onChange={function(e) { var n = {}; n[r.asin] = e.target.value; setEditQtys(Object.assign({}, editQtys, n)); }}

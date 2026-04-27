@@ -48,6 +48,7 @@ var ALL_COLUMNS = [
   { key: 'blkDRR',     label: 'BLK DRR' },
   { key: 'openPO',     label: 'Open PO' },
   { key: 'mfgQty',     label: 'Mfg Qty' },
+  { key: 'inTransit',  label: 'In Transit' },
   { key: 'totalInv',   label: 'Total Inv' },
   { key: 'totalDRR',   label: 'Total DRR' },
   { key: 'whDOC',      label: 'WH DOC' },
@@ -343,6 +344,7 @@ export default function AllProductsPage({ initialFilter }) {
                   {visible.has('blkDRR')     && <th>BLK DRR</th>}
                   {visible.has('openPO')     && <th>Open PO</th>}
                   {visible.has('mfgQty')     && <th style={{ background: '#e0f2fe', color: '#0891b2' }}>Mfg Qty</th>}
+                  {visible.has('inTransit')  && <th style={{ background: '#fef3c7', color: '#d97706' }}>In Transit</th>}
                   {visible.has('totalInv')   && <th>Total Inv</th>}
                   {visible.has('totalDRR')   && <th>Total DRR</th>}
                   {visible.has('whDOC')      && <th>WH DOC</th>}
@@ -427,6 +429,11 @@ export default function AllProductsPage({ initialFilter }) {
                       {visible.has('mfgQty') && (
                         <td style={{ background: '#e0f2fe', color: r.mfgQty > 0 ? '#0891b2' : 'var(--muted)', fontWeight: r.mfgQty > 0 ? 600 : 400 }}>
                           {r.mfgQty > 0 ? fmtN(r.mfgQty) : '\u2014'}
+                        </td>
+                      )}
+                      {visible.has('inTransit') && (
+                        <td style={{ background: '#fef3c7', color: r.inTransit > 0 ? '#d97706' : 'var(--muted)', fontWeight: r.inTransit > 0 ? 600 : 400 }}>
+                          {r.inTransit > 0 ? fmtN(r.inTransit) : '\u2014'}
                         </td>
                       )}
                       {visible.has('totalInv')   && <td style={{ fontWeight: 500 }}>{fmtN(r.totalInv)}</td>}

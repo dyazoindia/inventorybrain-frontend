@@ -353,25 +353,45 @@ export default function SupplierDashboard({ supplier }) {
                     </td>
 
                     {/* ── FINAL QTY (yellow) ── */}
+                    {/* Shows number ONLY when admin_approved = waiting for supplier to confirm */}
+                    {/* Once confirmed, shows badge — prevents repeat orders */}
                     <td style={{ background: '#fffde7', textAlign: 'center' }}>
-                      {!po && <span style={{ color: 'var(--muted)', fontSize: 11 }}>-</span>}
+                      {!po && (
+                        <span style={{ color: 'var(--muted)', fontSize: 11 }}>-</span>
+                      )}
                       {po && po.status === 'admin_approved' && (
-                        <span style={{ fontWeight: 700, color: '#b45309', fontSize: 14 }}>
-                          {fmtN(po.finalQty)}
-                        </span>
+                        <div>
+                          <span style={{ fontWeight: 700, color: '#b45309', fontSize: 16 }}>
+                            {fmtN(po.finalQty)}
+                          </span>
+                          <div style={{ fontSize: 9, color: '#b45309', marginTop: 2 }}>
+                            confirm below
+                          </div>
+                        </div>
                       )}
                       {po && po.status === 'supplier_confirmed' && (
                         <div>
-                          <span style={{ fontWeight: 700, color: '#b45309' }}>{fmtN(po.finalQty)}</span>
-                          {po.finalQty !== po.confirmedQty && (
-                            <div style={{ fontSize: 9, color: 'var(--orange)' }}>
-                              Remaining: {fmtN(po.finalQty - po.confirmedQty)}
-                            </div>
-                          )}
+                          <span className="badge badge-confirmed">In Mfg</span>
+                          <div style={{ fontSize: 9, color: '#0891b2', marginTop: 2 }}>
+                            {fmtN(po.confirmedQty)} units
+                          </div>
                         </div>
                       )}
-                      {po && (po.status === 'shipped' || po.status === 'delivered') && (
-                        <span style={{ fontWeight: 700, color: '#b45309' }}>{fmtN(po.finalQty)}</span>
+                      {po && po.status === 'shipped' && (
+                        <div>
+                          <span className="badge badge-transit">Shipped</span>
+                          <div style={{ fontSize: 9, color: '#d97706', marginTop: 2 }}>
+                            {fmtN(po.shippedQty)} units
+                          </div>
+                        </div>
+                      )}
+                      {po && po.status === 'delivered' && (
+                        <div>
+                          <span className="badge badge-ok">Delivered</span>
+                          <div style={{ fontSize: 9, color: '#16a34a', marginTop: 2 }}>
+                            {fmtN(po.deliveredQty)} to WH
+                          </div>
+                        </div>
                       )}
                     </td>
 

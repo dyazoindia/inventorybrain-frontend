@@ -58,7 +58,7 @@ export default function OpenPODashboard() {
   var invKey   = p + 'Inv';
   var drrKey   = p + 'DRR';
   var docKey   = p + 'DOC';
-  var openPOKey = p + 'OpenPO'; // custom field from Excel if available, else use openPO
+  var openPOKey = p + 'OpenPO';
 
   // Filter + search
   var rows = allRows;
@@ -202,7 +202,7 @@ export default function OpenPODashboard() {
                   var portalInv   = r[invKey]    || 0;
                   var portalDRR   = r[drrKey]    || 0;
                   var portalDOC   = r[docKey];
-                  var portalOpenPO = r[openPOKey] !== undefined ? r[openPOKey] : (r.openPO || 0);
+                  var portalOpenPO = (r[openPOKey] !== undefined && r[openPOKey] !== null) ? r[openPOKey] : 0;
                   var shipped     = shippedQtys[r.asin] !== undefined ? parseInt(shippedQtys[r.asin]) || 0 : 0;
                   var pending     = Math.max(0, portalOpenPO - shipped);
                   var status      = getPortalStatus(portalDOC, portalOpenPO);

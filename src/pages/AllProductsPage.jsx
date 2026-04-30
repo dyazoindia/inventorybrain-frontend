@@ -451,8 +451,9 @@ export default function AllProductsPage({ initialFilter }) {
                         </td>
                       )}
                       {visible.has('finalQty') && (
-                        <td style={{ background: '#fffde7' }}>
-                          {isAdmin ? (
+                        <td style={{ background: '#fffde7', textAlign: 'center' }}>
+                          {/* No PO */}
+                          {!po && isAdmin && (
                             isEd ? (
                               <div style={{ display: 'flex', gap: 4 }}>
                                 <input type="number" min="0" value={fq} autoFocus
@@ -462,19 +463,65 @@ export default function AllProductsPage({ initialFilter }) {
                                 <button className="btn btn-success btn-xs" onClick={function() { saveFinalQty(r.asin); }}>OK</button>
                               </div>
                             ) : (
-                              <div onClick={function() { setEditingAsin(r.asin); var n = {}; n[r.asin] = po && po.finalQty ? po.finalQty : ''; setEditQtys(Object.assign({}, editQtys, n)); }}
-                                style={{ cursor: 'pointer', minWidth: 60, padding: '3px 8px', borderRadius: 5,
-                                  background: po && po.finalQty ? 'var(--green-lt)' : '#fffde7',
-                                  border: '1px dashed ' + (po && po.finalQty ? 'var(--green)' : 'var(--yellow)'),
-                                  fontSize: 12, fontWeight: 600,
-                                  color: po && po.finalQty ? 'var(--green)' : 'var(--yellow)', textAlign: 'center' }}>
-                                {po && po.finalQty ? fmtN(po.finalQty) : 'Set Qty'}
+                              <div onClick={function() { setEditingAsin(r.asin); var n = {}; n[r.asin] = ''; setEditQtys(Object.assign({}, editQtys, n)); }}
+                                style={{ cursor: 'pointer', padding: '3px 8px', borderRadius: 5,
+                                  background: '#fffde7', border: '1px dashed var(--yellow)',
+                                  fontSize: 12, fontWeight: 600, color: 'var(--yellow)' }}>
+                                Set Qty
                               </div>
                             )
-                          ) : (
-                            <span style={{ fontSize: 12, fontWeight: 600, color: po && po.finalQty ? 'var(--green)' : 'var(--muted)' }}>
-                              {po && po.finalQty ? fmtN(po.finalQty) : '\u2014'}
-                            </span>
+                          )}
+                          {!po && !isAdmin && <span style={{ color: 'var(--muted)', fontSize: 11 }}>{'\u2014'}</span>}
+
+                          {/* admin_approved — show number, allow edit */}
+                          {po && po.status === 'admin_approved' && isAdmin && (
+                            isEd ? (
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                <input type="number" min="0" value={fq} autoFocus
+                                  onChange={function(e) { var n = {}; n[r.asin] = e.target.value; setEditQtys(Object.assign({}, editQtys, n)); }}
+                                  onKeyDown={function(e) { if (e.key === 'Enter') saveFinalQty(r.asin); if (e.key === 'Escape') setEditingAsin(null); }}
+                                  style={{ width: 70, padding: '3px 6px', border: '1px solid var(--blue)', borderRadius: 5, fontSize: 12, textAlign: 'center' }} />
+                                <button className="btn btn-success btn-xs" onClick={function() { saveFinalQty(r.asin); }}>OK</button>
+                              </div>
+                            ) : (
+                              <div onClick={function() { setEditingAsin(r.asin); var n = {}; n[r.asin] = po.finalQty; setEditQtys(Object.assign({}, editQtys, n)); }}
+                                style={{ cursor: 'pointer', padding: '3px 8px', borderRadius: 5,
+                                  background: 'var(--green-lt)', border: '1px dashed var(--green)',
+                                  fontSize: 12, fontWeight: 700, color: 'var(--green)' }}>
+                                {fmtN(po.finalQty)}
+                              </div>
+                            )
+                          )}
+                          {po && po.status === 'admin_approved' && !isAdmin && (
+                            <span style={{ fontWeight: 700, color: 'var(--green)', fontSize: 13 }}>{fmtN(po.finalQty)}</span>
+                          )}
+
+                          {/* supplier_confirmed — show badge, number gone */}
+                          {po && po.status === 'supplier_confirmed' && (
+                            <div>
+                              <span className="badge badge-confirmed">In Mfg</span>
+                              <div style={{ fontSize: 9, color: '#0891b2', marginTop: 2 }}>{fmtN(po.confirmedQty)} units</div>
+                            </div>
+                          )}
+
+                          {/* shipped — show badge */}
+                          {po && po.status === 'shipped' && (
+                            <div>
+                              <span className="badge badge-transit">In Transit</span>
+                              <div style={{ fontSize: 9, color: '#d97706', marginTop: 2 }}>{fmtN(po.shippedQty)} units</div>
+                            </div>
+                          )}
+
+                          {/* delivered — show badge, inv already in WH */}
+                          {po && po.status === 'delivered' && (
+                            <div>
+                              <span className="badge badge-ok">Delivered</span>
+                              <div style={{ fontSize: 9, color: '#16a34a', marginTop: 2 }}>{fmtN(po.deliveredQty)} to WH</div>
+                            </div>
+                          )}
+
+                          {po && po.status === 'rejected' && (
+                            <span className="badge badge-rejected">Rejected</span>
                           )}
                         </td>
                       )}

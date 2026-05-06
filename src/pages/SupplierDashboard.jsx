@@ -112,7 +112,12 @@ export default function SupplierDashboard({ supplier }) {
 
   var poMap = useMemo(function() {
     var m = {};
-    poList.forEach(function(po) { m[po.asin] = po; });
+    poList.forEach(function(po) {
+      // Only map ACTIVE POs — delivered/rejected allow new cycle
+      if (po.status !== 'delivered' && po.status !== 'rejected') {
+        m[po.asin] = po;
+      }
+    });
     return m;
   }, [poList]);
 

@@ -1,56 +1,64 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authApi } from '../utils/api';
 
-const AuthContext = createContext(null);
+var AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser]       = useState(null);
-  const [loading, setLoading] = useState(true);
+  var [user,    setUser]    = useState(null);
+  var [loading, setLoading] = useState(true);
+  var [token,   setToken]   = useState(function() {
+    return localStorage.getItem('ib_token') || null;
+  });
 
-  useEffect(() => {
-    const stored = localStorage.getItem('ib_user');
-    const token  = localStorage.getItem('ib_token');
-    if (stored && token) {
-      setUser(JSON.parse(stored));
-      // Verify token is still valid
-      authApi.me()
-        .then(res => setUser(res.data.user))
-        .catch(() => { localStorage.removeItem('ib_token'); localStorage.removeItem('ib_user'); setUser(null); })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+  // On mount — verify saved token
+  useEffect(function() {
+    var saved = localStorage.getItem('ib_token');
+    if (!saved) { setLoading(false); return; }
+    authApi.me()
+      .then(function(r) { setUser(r.data.user); })
+      .catch(function() {
+        localStorage.removeItem('ib_token');
+        setToken(null);
+      })
+      .finally(function() { setLoading(false); });
   }, []);
 
-  const login = async (email, password) => {
-    const res = await authApi.login({ email, password });
-    const { token, user } = res.data;
-    localStorage.setItem('ib_token', token);
-    localStorage.setItem('ib_user', JSON.stringify(user));
-    setUser(user);
-    return user;
-  };
+  var login = useCallback(async function(email, password) {
+    var r = await authApi.login({ email, password });
+    var { token: newToken, user: newUser } = r.data;
+    localStorage.setItem('ib_token', newToken);
+    setToken(newToken);
+    setUser(newUser);
+    return newUser;
+  }, []);
 
-  const logout = () => {
+  var logout = useCallback(function() {
     localStorage.removeItem('ib_token');
-    localStorage.removeItem('ib_user');
+    setToken(null);
     setUser(null);
-  };
+  }, []);
 
-  const isAdmin    = user?.role === 'admin';
-  const isChina    = user?.role === 'china_supplier';
-  const isMD       = user?.role === 'md_supplier';
-  const isSupplier = isChina || isMD;
+  var value = {
+    user,
+    token,
+    loading,
+    login,
+    logout,
+    isAdmin:    user && user.role === 'admin',
+    isOps:      user && user.role === 'operations',
+    isSupplier: user && (user.role === 'china_supplier' || user.role === 'md_supplier'),
+    isChina:    user && user.role === 'china_supplier',
+    isMD:       user && user.role === 'md_supplier',
+    isLoggedIn: !!user
+  };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, isAdmin, isChina, isMD, isSupplier }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be inside AuthProvider');
-  return ctx;
-};
+export function useAuth() {
+  return useContext(AuthContext);
+}
